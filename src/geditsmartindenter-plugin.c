@@ -31,10 +31,18 @@
 
 #define GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE(object)	(G_TYPE_INSTANCE_GET_PRIVATE ((object), TYPE_GEDITSMARTINDENTER_PLUGIN, GeditsmartindenterPluginPrivate))
 
+#define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
+
+
 struct _GeditsmartindenterPluginPrivate
 {
 	gpointer dummy;
 };
+
+typedef struct{
+	GeditWindow			*window;
+	GeditsmartindenterPlugin	*plugin;
+} WindowData;
 
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
@@ -57,13 +65,32 @@ geditsmartindenter_plugin_finalize (GObject *object)
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
 }
 
+static void
+window_data_free (WindowData *data)
+{
+        g_return_if_fail (data != NULL);
+
+        g_slice_free (WindowData, data);
+}
+
 
 static void
 impl_activate (GeditPlugin *plugin,
 	       GeditWindow *window)
 {
-
+	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
+	WindowData *wdata;
+	
 	gedit_debug (DEBUG_PLUGINS);
+	
+	wdata = g_slice_new (WindowData);
+	wdata->plugin = self;
+	wdata->window = window;
+
+	g_object_set_data_full (G_OBJECT (window),
+                                WINDOW_DATA_KEY,
+                                wdata,
+                                (GDestroyNotify) window_data_free);
 
 }
 
@@ -71,9 +98,11 @@ static void
 impl_deactivate (GeditPlugin *plugin,
 		 GeditWindow *window)
 {
-
+	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
+	WindowData *wdata;
 	gedit_debug (DEBUG_PLUGINS);
 
+	g_object_set_data (G_OBJECT (window), WINDOW_DATA_KEY, NULL);
 }
 
 static void
