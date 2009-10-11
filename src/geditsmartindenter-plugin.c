@@ -66,6 +66,31 @@ geditsmartindenter_plugin_finalize (GObject *object)
 }
 
 static void
+is_plus_indent (const gchar *text)
+{
+	gint i;
+	gchar *indent;
+	if (g_regex_match_simple ("\\.*\\{\\.*[^\\}]*\\.*$",
+				  text,
+				  0,
+				  0))
+	{
+		printf ("%s\n", text);
+		/*indent = get_indent (text);
+		if (indent)
+		{
+			printf ("%s    print();\n", indent);
+			g_free (indent);
+		}
+		*/
+	}
+	else
+	{
+		printf ("%s (NOT)\n", text);
+	}
+}
+
+static void
 window_data_free (WindowData *data)
 {
         g_return_if_fail (data != NULL);
@@ -80,9 +105,29 @@ insert_cb (GtkTextBuffer	*buffer,
 	   gint			 len,
 	   GeditsmartindenterPlugin *self)
 {
+	gint line;
+	
 	if (g_utf8_collate (text, "\n") == 0)
 	{
-		g_debug ("Return");
+		gchar *line_text;
+		GtkTextIter start_line = *location;
+		GtkTextIter end_line = *location;
+		
+		gtk_text_iter_backward_line (&end_line);
+		gtk_text_iter_backward_line (&start_line);
+		
+		gtk_text_iter_set_line_offset (&start_line, 0);
+		gtk_text_iter_forward_to_line_end (&end_line);
+		
+		line_text = gtk_text_buffer_get_text (buffer,
+						      &start_line,
+						      &end_line,
+						      FALSE);
+		g_debug ("Text [%s]", line_text);
+		
+		is_plus_indent (line_text);
+		
+		g_free (line_text);
 	}
 }
 
