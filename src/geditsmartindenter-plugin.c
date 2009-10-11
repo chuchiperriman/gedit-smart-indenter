@@ -73,6 +73,38 @@ window_data_free (WindowData *data)
         g_slice_free (WindowData, data);
 }
 
+static void
+insert_cb (GtkTextBuffer	*buffer,
+	   GtkTextIter		*location,
+	   gchar		*text,
+	   gint			 len,
+	   GeditsmartindenterPlugin *self)
+{
+	if (g_utf8_collate (text, "\n") == 0)
+	{
+		g_debug ("Return");
+	}
+}
+
+static void
+document_enable (GeditsmartindenterPlugin *self, GeditDocument *doc)
+{
+	g_signal_connect_after (doc,
+				"insert-text",
+				G_CALLBACK (insert_cb),
+				self);
+}
+
+static void
+tab_changed_cb (GeditWindow *geditwindow,
+                GeditTab    *tab,
+                GeditsmartindenterPlugin   *self)
+{
+        GeditDocument *doc = gedit_tab_get_document (tab);
+
+        document_enable (self, doc);
+}
+
 
 static void
 impl_activate (GeditPlugin *plugin,
@@ -80,6 +112,8 @@ impl_activate (GeditPlugin *plugin,
 {
 	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
 	WindowData *wdata;
+	GList *docs, *l;
+	GeditDocument *doc;
 	
 	gedit_debug (DEBUG_PLUGINS);
 	
@@ -91,6 +125,23 @@ impl_activate (GeditPlugin *plugin,
                                 WINDOW_DATA_KEY,
                                 wdata,
                                 (GDestroyNotify) window_data_free);
+
+	g_signal_connect (window, "active-tab-changed",
+                          G_CALLBACK (tab_changed_cb),
+                          self);
+
+	/*
+        g_signal_connect (window, "active-tab-state-changed",
+                          G_CALLBACK (tab_state_changed_cb),
+                          self);
+	*/
+
+	docs = gedit_window_get_documents (window);
+	for (l = docs; l != NULL; l = g_list_next (l))
+	{
+		doc = GEDIT_DOCUMENT (l->data);
+		document_enable (self, doc);
+        }
 
 }
 
