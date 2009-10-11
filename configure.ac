@@ -22,6 +22,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_DISABLE_STATIC
 
 AC_PATH_PROG(GCONFTOOL, gconftool-2)
+
 AC_PROG_INTLTOOL([0.35.0])
 
 AC_PROG_LIBTOOL
@@ -88,6 +89,7 @@ AC_CONFIG_FILES([
 Makefile
 src/Makefile
 data/Makefile
+po/Makefile.in
 ])
 
 AC_OUTPUT
