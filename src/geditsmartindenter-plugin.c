@@ -65,7 +65,29 @@ geditsmartindenter_plugin_finalize (GObject *object)
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
 }
 
-static void
+static gchar*
+get_indent (const gchar *text)
+{
+	/* Print all uppercase-only words. */
+	GRegex *regex;
+	GMatchInfo *match_info;
+	gchar *word = NULL;
+
+	/*TODO Store the regex in cache*/
+	regex = g_regex_new ("^\\s*", 0, 0, NULL);
+	g_regex_match (regex, text, 0, &match_info);
+	if (g_match_info_matches (match_info))
+	{
+		word = g_match_info_fetch (match_info, 0);
+	}
+	
+	g_match_info_free (match_info);
+	g_regex_unref (regex);
+
+	return word;
+}
+
+static gboolean
 is_plus_indent (const gchar *text)
 {
 	gint i;
@@ -75,19 +97,10 @@ is_plus_indent (const gchar *text)
 				  0,
 				  0))
 	{
-		printf ("%s\n", text);
-		/*indent = get_indent (text);
-		if (indent)
-		{
-			printf ("%s    print();\n", indent);
-			g_free (indent);
-		}
-		*/
+		return TRUE;
 	}
-	else
-	{
-		printf ("%s (NOT)\n", text);
-	}
+	
+	return FALSE;
 }
 
 static void
@@ -107,9 +120,15 @@ insert_cb (GtkTextBuffer	*buffer,
 {
 	gint line;
 	
+	g_signal_handlers_block_by_func (buffer,
+					 insert_cb,
+					 self);
+	
 	if (g_utf8_collate (text, "\n") == 0)
 	{
+		g_debug ("len %i", len);
 		gchar *line_text;
+		gchar *indent;
 		GtkTextIter start_line = *location;
 		GtkTextIter end_line = *location;
 		
@@ -119,16 +138,39 @@ insert_cb (GtkTextBuffer	*buffer,
 		gtk_text_iter_set_line_offset (&start_line, 0);
 		gtk_text_iter_forward_to_line_end (&end_line);
 		
-		line_text = gtk_text_buffer_get_text (buffer,
-						      &start_line,
-						      &end_line,
-						      FALSE);
-		g_debug ("Text [%s]", line_text);
+		if (gtk_text_iter_get_line_offset (&end_line) != 0)
+		{
 		
-		is_plus_indent (line_text);
+			line_text = gtk_text_buffer_get_text (buffer,
+							      &start_line,
+							      &end_line,
+							      FALSE);
+			g_debug ("line [%s]", line_text);
+			indent = get_indent (line_text);
+
+			if (is_plus_indent (line_text))
+			{
+				g_debug ("is");
+				gtk_text_buffer_insert_at_cursor (buffer,
+								  "	",
+								  g_utf8_strlen ("	", -1));
+			}
+
+			if (indent)
+			{
+				g_debug ("indent [%s]", indent);
+				gtk_text_buffer_insert_at_cursor (buffer,
+								  indent,
+								  g_utf8_strlen (indent, -1));
+				g_free (indent);
+			}
 		
-		g_free (line_text);
+			g_free (line_text);
+		}
 	}
+	g_signal_handlers_unblock_by_func (buffer,
+					   insert_cb,
+					   self);
 }
 
 static void
