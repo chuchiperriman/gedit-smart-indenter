@@ -1,0 +1,80 @@
+# Spanish translations for gedit-sc-plugin package.
+# Copyright (C) 2009 THE gedit-sc-plugin'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the gedit-sc-plugin package.
+# perriman <chuchiperriman@gmail.com>, 2009.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gedit-sc-plugin 0.1.9\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2009-06-20 17:22+0200\n"
+"PO-Revision-Date: 2009-06-20 17:35+0200\n"
+"Last-Translator: perriman <chuchiperriman@gmail.com>\n"
+"Language-Team: Español\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: ../src/sc.gedit-plugin.desktop.in.h:1
+msgid "Adds (auto)completion support to gedit for source code"
+msgstr "Añade (auto)completado de código fuente a gedit"
+
+#: ../src/sc.gedit-plugin.desktop.in.h:2
+msgid "Source Code Completion"
+msgstr "Completado de código fuente"
+
+#: ../src/sc-ctags.c:95
+#, c-format
+msgid "Could not execute ctags: %s\n"
+msgstr "No se pudo ejecutar ctags: %s\n"
+
+#: ../src/sc-plugin.c:182
+msgid "Symbol Browser"
+msgstr "Navegador de símbolos"
+
+#: ../src/sc-provider-csymbols-goto.c:52
+msgid "File Symbols Goto"
+msgstr "Ir a símbolos del fichero"
+
+#: ../src/sc-provider-csymbols-goto.c:83
+#, c-format
+msgid ""
+"<b>Name:</b> %s\n"
+"<b>Type:</b> %s\n"
+"<b>Line:</b> %d\n"
+"<b>Signature:</b> %s"
+msgstr ""
+"<b>Nombre:</b> %s\n"
+"<b>Tipo:</b> %s\n"
+"<b>Línea:</b> %d\n"
+"<b>Firma:</b> %s"
+
+#: ../src/sc-provider-csymbols.c:51
+msgid "File Symbols"
+msgstr "Símbolos del fichero"
+
+#: ../src/sc-provider-project-csymbols.c:51
+msgid "Project Symbols"
+msgstr "Símbolos del proyecto"
+
+#: ../src/sc-utils.c:78
+#, c-format
+msgid "Couldn't load icon: %s"
+msgstr "No se pudo cargar el icono: %s"
+
+#: ../src/sc-symbols-panel.c:244
+msgid "Symbols"
+msgstr "Símbolos"
+
+#: ../src/sc-menu.c:114
+msgid "Source Code"
+msgstr "Código fuente"
+
+#: ../src/sc-menu.c:117
+msgid "Generate Project Tags"
+msgstr "Generar etiquetas del proyecto"
+
+#: ../src/sc-menu.c:119
+msgid "Generate the tags symbols file for the project of the current document"
+msgstr "Genera el fichero de símbolos del proyecto del documento actual"
