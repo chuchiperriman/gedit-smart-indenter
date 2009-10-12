@@ -46,6 +46,11 @@ typedef struct{
 
 typedef gchar*	(*indenter)	(const gchar *line);
 
+static const gchar* regex_block [] = {
+	"\\.*\\{\\.*[^\\}]*\\.*$",
+	NULL
+};
+
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
 
@@ -95,22 +100,30 @@ indenter_block (const gchar *text)
 	gint i;
 	gchar *indent = NULL;
 	gchar *end = NULL;
+	const gchar **regex = regex_block;
 	/*TODO Store the regexp in cache*/
-	if (g_regex_match_simple ("\\.*\\{\\.*[^\\}]*\\.*$",
-				  text,
-				  0,
-				  0))
+
+	while (*regex != NULL)
 	{
-		indent = get_indent (text);
-		if (indent)
+		if (g_regex_match_simple (*regex,
+					  text,
+					  0,
+					  0))
 		{
-			end = g_strconcat (indent, "	", NULL);
-			g_free (indent);
+			indent = get_indent (text);
+			if (indent)
+			{
+				end = g_strconcat (indent, "	", NULL);
+				g_free (indent);
+			}
+			else
+			{
+				end = g_strdup ("	");
+			}
+			
+			break;
 		}
-		else
-		{
-			end = g_strdup ("	");
-		}
+		regex++;
 	}
 	
 	return end;
@@ -151,7 +164,7 @@ indenter_function_params (const gchar *text)
 		}
 		g_free (word);
 
-		res = g_strconcat (indent, bl);
+		res = g_strconcat (indent, bl, NULL);
 
 		g_free (indent);
 		g_free (bl);
