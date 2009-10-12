@@ -120,28 +120,44 @@ indenter_block (const gchar *text)
 static gchar*
 indenter_function_params (const gchar *text)
 {
+	/* Print all uppercase-only words. */
+	GRegex *regex;
+	GMatchInfo *match_info;
+	gchar *word = NULL, *indent = NULL, *res = NULL, *bl = NULL;
+	glong len;
 	gint i;
-	gchar *indent = NULL;
-	gchar *end = NULL;
-	/*TODO Store the regexp in cache*/
-	if (g_regex_match_simple ("\\.*\\(\\.*[^\\)]*\\.*$",
-				  text,
-				  0,
-				  0))
+	
+	regex = g_regex_new ("\\s*(.*\\()[^\\)]*$", 0, 0, NULL);
+	g_regex_match (regex, text, 0, &match_info);
+	while (g_match_info_matches (match_info))
+	{
+		word = g_match_info_fetch (match_info, 1);
+
+		if (word) break;
+		
+		g_match_info_next (match_info, NULL);
+	}
+	g_match_info_free (match_info);
+	g_regex_unref (regex);
+
+	if (word)
 	{
 		indent = get_indent (text);
-		if (indent)
+		len = g_utf8_strlen (word, -1);
+		bl = g_malloc0 (len);
+		for (i = 0; i < len; i++)
 		{
-			end = g_strconcat (indent, "	----", NULL);
-			g_free (indent);
+			strcat (bl, " ");
 		}
-		else
-		{
-			end = g_strdup ("	----");
-		}
+		g_free (word);
+
+		res = g_strconcat (indent, bl);
+
+		g_free (indent);
+		g_free (bl);
 	}
 	
-	return end;
+	return res;
 }
 
 static void
@@ -174,7 +190,6 @@ insert_cb (GtkTextBuffer	*buffer,
 	
 	if (g_utf8_collate (text, "\n") == 0)
 	{
-		g_debug ("len %i", len);
 		gchar *line_text;
 		gchar *indent;
 		GtkTextIter start_line = *location;
@@ -193,7 +208,6 @@ insert_cb (GtkTextBuffer	*buffer,
 							      &start_line,
 							      &end_line,
 							      FALSE);
-			g_debug ("line [%s]", line_text);
 			for (i = 0; indenters [i] != NULL; i++)
 			{
 				indent = indenters [i] (line_text);
