@@ -44,6 +44,8 @@ typedef struct{
 	GeditsmartindenterPlugin	*plugin;
 } WindowData;
 
+typedef gchar*	(*indenter)	(const gchar *line);
+
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
 
@@ -87,20 +89,59 @@ get_indent (const gchar *text)
 	return word;
 }
 
-static gboolean
-is_plus_indent (const gchar *text)
+static gchar*
+indenter_block (const gchar *text)
 {
 	gint i;
-	gchar *indent;
+	gchar *indent = NULL;
+	gchar *end = NULL;
+	/*TODO Store the regexp in cache*/
 	if (g_regex_match_simple ("\\.*\\{\\.*[^\\}]*\\.*$",
 				  text,
 				  0,
 				  0))
 	{
-		return TRUE;
+		indent = get_indent (text);
+		if (indent)
+		{
+			end = g_strconcat (indent, "	", NULL);
+			g_free (indent);
+		}
+		else
+		{
+			end = g_strdup ("	");
+		}
 	}
 	
-	return FALSE;
+	return end;
+}
+
+/* TODO */
+static gchar*
+indenter_function_params (const gchar *text)
+{
+	gint i;
+	gchar *indent = NULL;
+	gchar *end = NULL;
+	/*TODO Store the regexp in cache*/
+	if (g_regex_match_simple ("\\.*\\(\\.*[^\\)]*\\.*$",
+				  text,
+				  0,
+				  0))
+	{
+		indent = get_indent (text);
+		if (indent)
+		{
+			end = g_strconcat (indent, "	----", NULL);
+			g_free (indent);
+		}
+		else
+		{
+			end = g_strdup ("	----");
+		}
+	}
+	
+	return end;
 }
 
 static void
@@ -111,6 +152,12 @@ window_data_free (WindowData *data)
         g_slice_free (WindowData, data);
 }
 
+static indenter indenters [] = {
+	&indenter_block,
+	&indenter_function_params,
+	NULL
+};
+
 static void
 insert_cb (GtkTextBuffer	*buffer,
 	   GtkTextIter		*location,
@@ -119,6 +166,7 @@ insert_cb (GtkTextBuffer	*buffer,
 	   GeditsmartindenterPlugin *self)
 {
 	gint line;
+	gint i;
 	
 	g_signal_handlers_block_by_func (buffer,
 					 insert_cb,
@@ -146,25 +194,23 @@ insert_cb (GtkTextBuffer	*buffer,
 							      &end_line,
 							      FALSE);
 			g_debug ("line [%s]", line_text);
-			indent = get_indent (line_text);
-
-			if (is_plus_indent (line_text))
+			for (i = 0; indenters [i] != NULL; i++)
 			{
-				g_debug ("is");
-				gtk_text_buffer_insert_at_cursor (buffer,
-								  "	",
-								  g_utf8_strlen ("	", -1));
-			}
+				indent = indenters [i] (line_text);
 
-			if (indent)
-			{
-				g_debug ("indent [%s]", indent);
-				gtk_text_buffer_insert_at_cursor (buffer,
-								  indent,
-								  g_utf8_strlen (indent, -1));
-				g_free (indent);
+				if (indent) break;
 			}
-		
+			
+			if (!indent)
+			{
+				indent = get_indent (line_text);
+			}
+			
+			gtk_text_buffer_insert_at_cursor (buffer,
+							  indent,
+							  g_utf8_strlen (indent, -1));
+			g_free (indent);
+			
 			g_free (line_text);
 		}
 	}
