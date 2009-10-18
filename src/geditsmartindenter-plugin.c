@@ -56,6 +56,11 @@ typedef struct{
 typedef gchar*	(*indenter)	(const gchar *line);
 */
 
+static const gchar* regex_block [] = {
+	"\\.*\\{\\.*[^\\}]*\\.*$",
+	NULL
+};
+
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
 static Indenter*
@@ -192,7 +197,6 @@ get_indent (Indenter *indenter, const gchar *text)
 static gchar*
 indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 {
-	
 	gint i;
 	gchar *indent = NULL;
 	/*TODO Store the regexp in cache*/
@@ -221,6 +225,12 @@ indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 		{
 			indent = get_indent (indenter, text);
 		}
+		g_free (word);
+
+		res = g_strconcat (indent, bl, NULL);
+
+		g_free (indent);
+		g_free (bl);
 	}
 	
 	return indent;
@@ -253,7 +263,6 @@ insert_cb (GtkTextBuffer	*buffer,
 	
 	if (g_utf8_collate (text, "\n") == 0)
 	{
-		g_debug ("len %i", len);
 		gchar *line_text;
 		gchar *indent;
 		GtkTextIter start_line = *location;
