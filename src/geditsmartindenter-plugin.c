@@ -109,7 +109,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new (".*\\/\\*(?!.*\\*/)", "+1", " * "));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
-						 indenter_new ("\\.*\\{\\.*[^\\}]*\\.*$", "+1", "	"));
+						 indenter_new (".*\\{[^\\}]*", "+1", "	"));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
@@ -174,7 +174,7 @@ get_indent (Indenter *indenter, const gchar *text)
 	gchar *end = NULL;
 
 	/*TODO Store the regex in cache*/
-	regex = g_regex_new ("^\\s*$", 0, 0, NULL);
+	regex = g_regex_new ("^\\s*", 0, 0, NULL);
 	g_regex_match (regex, text, 0, &match_info);
 	if (g_match_info_matches (match_info))
 	{
@@ -260,25 +260,17 @@ key_press_cb (GtkTextView		*view,
 	                            gtk_text_buffer_get_insert (buffer));
 		
 	start_line = location;
-	end_line = location;
-	
-/*
-	gtk_text_iter_backward_line (&end_line);
-	gtk_text_iter_backward_line (&start_line);
-*/	
-	gtk_text_iter_set_line_offset (&start_line, 0);
-	gtk_text_iter_forward_to_line_end (&end_line);
-	
-	
-	
-	if (gtk_text_iter_get_line_offset (&end_line) != 0)
+
+	if (gtk_text_iter_get_line_offset (&location) != 0)
 	{
+		gtk_text_iter_set_line_offset (&start_line, 0);
+		end_line = start_line;
+		gtk_text_iter_forward_to_line_end (&end_line);
+
 		line_text = gtk_text_buffer_get_text (buffer,
 						      &start_line,
 						      &end_line,
 						      FALSE);
-		g_debug ("line_text [%s]", line_text);
-						      
 		for (l = self->priv->indenters; l != NULL ; l = g_list_next (l))
 		{
 			temp_iter = location;
