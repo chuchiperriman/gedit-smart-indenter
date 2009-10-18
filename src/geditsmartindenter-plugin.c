@@ -33,10 +33,18 @@
 
 #define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
 
+typedef struct{
+	gchar *match;
+	gchar *indent;
+	gchar *append;
+	gboolean search_pair;
+	gchar *start_pair;
+	gchar *end_pair;
+} Indenter;
 
 struct _GeditsmartindenterPluginPrivate
 {
-	gpointer dummy;
+	GList *indenters;
 };
 
 typedef struct{
@@ -44,10 +52,41 @@ typedef struct{
 	GeditsmartindenterPlugin	*plugin;
 } WindowData;
 
+/*
 typedef gchar*	(*indenter)	(const gchar *line);
+*/
 
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
+static Indenter*
+indenter_new (const gchar *match,
+	      const gchar *indent,
+	      const gchar *append)
+{
+	Indenter *indenter;
+	indenter = g_slice_new (Indenter);
+	indenter->match = g_strdup (match);
+	indenter->indent = g_strdup (indent);
+	indenter->append = g_strdup (append);
+	indenter->search_pair = FALSE;
+	
+	return indenter;
+}
+
+static Indenter*
+indenter_new_pair (const gchar *match,
+		   const gchar *indent,
+		   const gchar *append,
+		   const gchar *start_pair,
+		   const gchar *end_pair)
+{
+	Indenter *indenter = indenter_new (match, indent, append);
+	indenter->search_pair = TRUE;
+	indenter->start_pair = g_strdup (start_pair);
+	indenter->end_pair = g_strdup (end_pair);
+	
+	return indenter;
+}
 
 static void
 geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
@@ -56,6 +95,18 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 
 	gedit_debug_message (DEBUG_PLUGINS,
 			     "GeditsmartindenterPlugin initializing");
+
+	plugin->priv->indenters = NULL;
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new (".*\\/\\*(?!.*\\*/)", "+1", " * "));
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new ("\\.*\\{\\.*[^\\}]*\\.*$", "+1", "	"));
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
+	/*						                                           
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new ("\\.*\\)\\s*", "+1", "	"));
+	*/						 
 }
 
 static void
@@ -67,81 +118,112 @@ geditsmartindenter_plugin_finalize (GObject *object)
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
 }
 
-static gchar*
-get_indent (const gchar *text)
+static gboolean
+move_to_pair_char (GtkTextIter *iter, 
+		   const gchar *start_pair,
+		   const gchar *end_pair)
 {
-	/* Print all uppercase-only words. */
+	gint count = 0;
+	gboolean found = FALSE;
+	gchar *c;
+	GtkTextIter prev_iter = *iter;
+	
+	g_debug ("searching pair %s", start_pair);
+	
+	while (gtk_text_iter_backward_char (iter))
+	{
+		c = gtk_text_iter_get_slice (iter, &prev_iter);
+		
+		prev_iter = *iter;
+		
+		g_debug ("slice %s",c);
+		if (g_utf8_collate (end_pair, c) == 0)
+		{
+			count++;
+		}
+		else if (g_utf8_collate (start_pair, c) == 0)
+		{
+			if (count == 0)
+			{
+				g_debug ("Found pair: %i-%i",
+					 gtk_text_iter_get_line (iter),
+					 gtk_text_iter_get_line_offset (iter));
+				found = TRUE;
+				break;
+			}
+			count--;
+		}
+	}
+	return found;
+}
+
+static gchar*
+get_indent (Indenter *indenter, const gchar *text)
+{
 	GRegex *regex;
 	GMatchInfo *match_info;
-	gchar *word = NULL;
+	gchar *ind = NULL;
+	gchar *end = NULL;
 
 	/*TODO Store the regex in cache*/
 	regex = g_regex_new ("^\\s*", 0, 0, NULL);
 	g_regex_match (regex, text, 0, &match_info);
 	if (g_match_info_matches (match_info))
 	{
-		word = g_match_info_fetch (match_info, 0);
+		ind = g_match_info_fetch (match_info, 0);
 	}
 	
 	g_match_info_free (match_info);
 	g_regex_unref (regex);
-
-	return word;
-}
-
-static gchar*
-indenter_block (const gchar *text)
-{
-	gint i;
-	gchar *indent = NULL;
-	gchar *end = NULL;
-	/*TODO Store the regexp in cache*/
-	if (g_regex_match_simple ("\\.*\\{\\.*[^\\}]*\\.*$",
-				  text,
-				  0,
-				  0))
+	
+	if (indenter && indenter->append)
 	{
-		indent = get_indent (text);
-		if (indent)
-		{
-			end = g_strconcat (indent, "	", NULL);
-			g_free (indent);
-		}
-		else
-		{
-			end = g_strdup ("	");
-		}
+		end = g_strconcat (ind, indenter->append, NULL);
+		g_free (ind);
+	}
+	else
+	{
+		end = ind;
 	}
 	
 	return end;
 }
 
-/* TODO */
 static gchar*
-indenter_function_params (const gchar *text)
+indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 {
+	
 	gint i;
 	gchar *indent = NULL;
-	gchar *end = NULL;
 	/*TODO Store the regexp in cache*/
-	if (g_regex_match_simple ("\\.*\\(\\.*[^\\)]*\\.*$",
+	if (g_regex_match_simple (indenter->match,
 				  text,
 				  0,
 				  0))
 	{
-		indent = get_indent (text);
-		if (indent)
+		if (indenter->search_pair)
 		{
-			end = g_strconcat (indent, "	----", NULL);
-			g_free (indent);
+			indent = get_indent (indenter, text);
+			
+			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
+			{
+				//gchar *temp;
+				gchar *spaces = g_strnfill (gtk_text_iter_get_line_offset (iter) + 1, ' ');
+				
+				//temp = g_strconcat (indent, spaces, NULL);
+				g_free (indent);
+				//g_free (spaces);
+				//indent = temp;
+				indent = spaces;
+			}
 		}
 		else
 		{
-			end = g_strdup ("	----");
+			indent = get_indent (indenter, text);
 		}
 	}
 	
-	return end;
+	return indent;
 }
 
 static void
@@ -152,12 +234,6 @@ window_data_free (WindowData *data)
         g_slice_free (WindowData, data);
 }
 
-static indenter indenters [] = {
-	&indenter_block,
-	&indenter_function_params,
-	NULL
-};
-
 static void
 insert_cb (GtkTextBuffer	*buffer,
 	   GtkTextIter		*location,
@@ -167,6 +243,9 @@ insert_cb (GtkTextBuffer	*buffer,
 {
 	gint line;
 	gint i;
+	GList *l;
+	Indenter *indenter;
+	GtkTextIter temp_iter;
 	
 	g_signal_handlers_block_by_func (buffer,
 					 insert_cb,
@@ -188,27 +267,32 @@ insert_cb (GtkTextBuffer	*buffer,
 		
 		if (gtk_text_iter_get_line_offset (&end_line) != 0)
 		{
-		
 			line_text = gtk_text_buffer_get_text (buffer,
 							      &start_line,
 							      &end_line,
 							      FALSE);
 			g_debug ("line [%s]", line_text);
-			for (i = 0; indenters [i] != NULL; i++)
+			for (l = self->priv->indenters; l != NULL ; l = g_list_next (l))
 			{
-				indent = indenters [i] (line_text);
+				temp_iter = *location;
+				indenter = (Indenter*)l->data;
+				indent = indenter_process (indenter, &temp_iter, line_text);
 
 				if (indent) break;
 			}
 			
 			if (!indent)
 			{
-				indent = get_indent (line_text);
+				indent = get_indent (NULL, line_text);
 			}
-			
+			g_debug ("start insert");
+			gtk_text_buffer_begin_user_action (buffer);
 			gtk_text_buffer_insert_at_cursor (buffer,
 							  indent,
 							  g_utf8_strlen (indent, -1));
+							  
+			gtk_text_buffer_end_user_action (buffer);
+			g_debug ("end insert");
 			g_free (indent);
 			
 			g_free (line_text);
