@@ -26,6 +26,8 @@
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
+#include <gdk/gdkkeysyms.h>
+
 
 #define WINDOW_DATA_KEY	"GeditsmartindenterPluginWindowData"
 
@@ -79,6 +81,7 @@ indenter_new (const gchar *match,
 }
 
 static Indenter*
+
 indenter_new_pair (const gchar *match,
 		   const gchar *indent,
 		   const gchar *append,
@@ -102,16 +105,17 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 			     "GeditsmartindenterPlugin initializing");
 
 	plugin->priv->indenters = NULL;
+	
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new (".*\\/\\*(?!.*\\*/)", "+1", " * "));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new ("\\.*\\{\\.*[^\\}]*\\.*$", "+1", "	"));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
-	/*						                                           
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
-						 indenter_new ("\\.*\\)\\s*", "+1", "	"));
-	*/						 
+						 indenter_new ("(if|while|for)\\s*\\(.*\\)\\s*$", "+1", "	"));
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
 }
 
 static void
@@ -141,7 +145,6 @@ move_to_pair_char (GtkTextIter *iter,
 		
 		prev_iter = *iter;
 		
-		g_debug ("slice %s",c);
 		if (g_utf8_collate (end_pair, c) == 0)
 		{
 			count++;
@@ -171,7 +174,7 @@ get_indent (Indenter *indenter, const gchar *text)
 	gchar *end = NULL;
 
 	/*TODO Store the regex in cache*/
-	regex = g_regex_new ("^\\s*", 0, 0, NULL);
+	regex = g_regex_new ("^\\s*$", 0, 0, NULL);
 	g_regex_match (regex, text, 0, &match_info);
 	if (g_match_info_matches (match_info))
 	{
@@ -211,13 +214,8 @@ indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 			
 			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
 			{
-				//gchar *temp;
 				gchar *spaces = g_strnfill (gtk_text_iter_get_line_offset (iter) + 1, ' ');
-				
-				//temp = g_strconcat (indent, spaces, NULL);
 				g_free (indent);
-				//g_free (spaces);
-				//indent = temp;
 				indent = spaces;
 			}
 		}
@@ -225,12 +223,6 @@ indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 		{
 			indent = get_indent (indenter, text);
 		}
-		g_free (word);
-
-		res = g_strconcat (indent, bl, NULL);
-
-		g_free (indent);
-		g_free (bl);
 	}
 	
 	return indent;
@@ -244,81 +236,97 @@ window_data_free (WindowData *data)
         g_slice_free (WindowData, data);
 }
 
-static void
-insert_cb (GtkTextBuffer	*buffer,
-	   GtkTextIter		*location,
-	   gchar		*text,
-	   gint			 len,
-	   GeditsmartindenterPlugin *self)
+static gboolean
+key_press_cb (GtkTextView		*view,
+		GdkEventKey 		*event,
+		GeditsmartindenterPlugin *self)
 {
 	gint line;
 	gint i;
 	GList *l;
 	Indenter *indenter;
+	GtkTextIter location, start_line, end_line;
 	GtkTextIter temp_iter;
-	
-	g_signal_handlers_block_by_func (buffer,
-					 insert_cb,
-					 self);
-	
-	if (g_utf8_collate (text, "\n") == 0)
-	{
-		gchar *line_text;
-		gchar *indent;
-		GtkTextIter start_line = *location;
-		GtkTextIter end_line = *location;
-		
-		gtk_text_iter_backward_line (&end_line);
-		gtk_text_iter_backward_line (&start_line);
-		
-		gtk_text_iter_set_line_offset (&start_line, 0);
-		gtk_text_iter_forward_to_line_end (&end_line);
-		
-		if (gtk_text_iter_get_line_offset (&end_line) != 0)
-		{
-			line_text = gtk_text_buffer_get_text (buffer,
-							      &start_line,
-							      &end_line,
-							      FALSE);
-			g_debug ("line [%s]", line_text);
-			for (l = self->priv->indenters; l != NULL ; l = g_list_next (l))
-			{
-				temp_iter = *location;
-				indenter = (Indenter*)l->data;
-				indent = indenter_process (indenter, &temp_iter, line_text);
+	GtkTextBuffer *buffer;
+	gchar *line_text;
+	gchar *indent;
 
-				if (indent) break;
-			}
-			
-			if (!indent)
-			{
-				indent = get_indent (NULL, line_text);
-			}
-			g_debug ("start insert");
-			gtk_text_buffer_begin_user_action (buffer);
+	if (event->keyval != GDK_Return)
+		return FALSE;
+	
+	buffer = gtk_text_view_get_buffer (view);
+	gtk_text_buffer_get_iter_at_mark (buffer, 
+	                            &location,
+	                            gtk_text_buffer_get_insert (buffer));
+		
+	start_line = location;
+	end_line = location;
+	
+/*
+	gtk_text_iter_backward_line (&end_line);
+	gtk_text_iter_backward_line (&start_line);
+*/	
+	gtk_text_iter_set_line_offset (&start_line, 0);
+	gtk_text_iter_forward_to_line_end (&end_line);
+	
+	
+	
+	if (gtk_text_iter_get_line_offset (&end_line) != 0)
+	{
+		line_text = gtk_text_buffer_get_text (buffer,
+						      &start_line,
+						      &end_line,
+						      FALSE);
+		g_debug ("line_text [%s]", line_text);
+						      
+		for (l = self->priv->indenters; l != NULL ; l = g_list_next (l))
+		{
+			temp_iter = location;
+			indenter = (Indenter*)l->data;
+			indent = indenter_process (indenter, &temp_iter, line_text);
+
+			if (indent) break;
+		}
+		
+		if (!indent)
+		{
+			indent = get_indent (NULL, line_text);
+		}
+		g_debug ("start insert");
+		gtk_text_buffer_begin_user_action (buffer);
+		gtk_text_buffer_insert_at_cursor (buffer,
+						  "\n",
+						  -1);
+		if (indent)
+		{
 			gtk_text_buffer_insert_at_cursor (buffer,
 							  indent,
 							  g_utf8_strlen (indent, -1));
-							  
-			gtk_text_buffer_end_user_action (buffer);
-			g_debug ("end insert");
 			g_free (indent);
-			
-			g_free (line_text);
 		}
+		gtk_text_buffer_end_user_action (buffer);
+		g_debug ("end insert");
+		
+		g_free (line_text);
+		
+		return TRUE;
 	}
+	//g_debug ("location end %i: ", gtk_text_iter_get_line_offset (&location));
+	/*
 	g_signal_handlers_unblock_by_func (buffer,
 					   insert_cb,
 					   self);
+	*/
+	return FALSE;
 }
 
 static void
-document_enable (GeditsmartindenterPlugin *self, GeditDocument *doc)
+document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 {
-	g_signal_connect_after (doc,
-				"insert-text",
-				G_CALLBACK (insert_cb),
-				self);
+	g_signal_connect (view,
+			  "key-press-event",
+			  G_CALLBACK (key_press_cb),
+			  self);
 }
 
 static void
@@ -326,9 +334,9 @@ tab_changed_cb (GeditWindow *geditwindow,
                 GeditTab    *tab,
                 GeditsmartindenterPlugin   *self)
 {
-        GeditDocument *doc = gedit_tab_get_document (tab);
+        GeditView *view = gedit_tab_get_view (tab);
 
-        document_enable (self, doc);
+        document_enable (self, view);
 }
 
 
@@ -338,8 +346,8 @@ impl_activate (GeditPlugin *plugin,
 {
 	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
 	WindowData *wdata;
-	GList *docs, *l;
-	GeditDocument *doc;
+	GList *views, *l;
+	GeditView *view;
 	
 	gedit_debug (DEBUG_PLUGINS);
 	
@@ -362,11 +370,11 @@ impl_activate (GeditPlugin *plugin,
                           self);
 	*/
 
-	docs = gedit_window_get_documents (window);
-	for (l = docs; l != NULL; l = g_list_next (l))
+	views = gedit_window_get_views (window);
+	for (l = views; l != NULL; l = g_list_next (l))
 	{
-		doc = GEDIT_DOCUMENT (l->data);
-		document_enable (self, doc);
+		view = GEDIT_VIEW (l->data);
+		document_enable (self, view);
         }
 
 }
