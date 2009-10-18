@@ -58,7 +58,7 @@ AC_SUBST(GEDIT_CFLAGS)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 			      
-#GNOME_COMPILE_WARNINGS(yes)
+GNOME_COMPILE_WARNINGS(yes)
 
 AC_ARG_ENABLE(deprecations,
               [AC_HELP_STRING([--enable-deprecations],

@@ -54,15 +54,6 @@ typedef struct{
 	GeditsmartindenterPlugin	*plugin;
 } WindowData;
 
-/*
-typedef gchar*	(*indenter)	(const gchar *line);
-*/
-
-static const gchar* regex_block [] = {
-	"\\.*\\{\\.*[^\\}]*\\.*$",
-	NULL
-};
-
 GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 
 static Indenter*
@@ -200,7 +191,6 @@ get_indent (Indenter *indenter, const gchar *text)
 static gchar*
 indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 {
-	gint i;
 	gchar *indent = NULL;
 	/*TODO Store the regexp in cache*/
 	if (g_regex_match_simple (indenter->match,
@@ -241,15 +231,13 @@ key_press_cb (GtkTextView		*view,
 		GdkEventKey 		*event,
 		GeditsmartindenterPlugin *self)
 {
-	gint line;
-	gint i;
 	GList *l;
 	Indenter *indenter;
 	GtkTextIter location, start_line, end_line;
 	GtkTextIter temp_iter;
 	GtkTextBuffer *buffer;
 	gchar *line_text;
-	gchar *indent;
+	gchar *indent = NULL;
 
 	if (event->keyval != GDK_Return)
 		return FALSE;
@@ -259,10 +247,9 @@ key_press_cb (GtkTextView		*view,
 	                            &location,
 	                            gtk_text_buffer_get_insert (buffer));
 		
-	start_line = location;
-
 	if (gtk_text_iter_get_line_offset (&location) != 0)
 	{
+		start_line = location;
 		gtk_text_iter_set_line_offset (&start_line, 0);
 		end_line = start_line;
 		gtk_text_iter_forward_to_line_end (&end_line);
@@ -375,8 +362,7 @@ static void
 impl_deactivate (GeditPlugin *plugin,
 		 GeditWindow *window)
 {
-	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
-	WindowData *wdata;
+	/*GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);*/
 	gedit_debug (DEBUG_PLUGINS);
 
 	g_object_set_data (G_OBJECT (window), WINDOW_DATA_KEY, NULL);
