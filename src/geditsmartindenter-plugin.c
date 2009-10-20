@@ -86,63 +86,6 @@ indenter_new_pair (const gchar *match,
 	return indenter;
 }
 
-static gchar *
-get_indent_string (guint tabs, guint spaces)
-{
-	gchar *str;
-
-	str = g_malloc (tabs + spaces + 1);
-	if (tabs > 0)
-		memset (str, '\t', tabs);
-	if (spaces > 0)
-		memset (str + tabs, ' ', spaces);
-	str[tabs + spaces] = '\0';
-
-	return str;
-}
-
-static guint
-get_real_indent_width (GtkSourceView *view)
-{
-	return gtk_source_view_get_indent_width (view) < 0 ?
-	       gtk_source_view_get_tab_width (view) :
-	       (guint) gtk_source_view_get_indent_width (view);
-}
-
-static gchar*
-get_indent_pair (GtkSourceView *view)
-{
-	GtkTextBuffer *buf;
-	guint spaces = 0, tabs = 0;
-	gchar *tab_buffer = NULL;
-	
-	buf = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-	
-	if (gtk_source_view_get_insert_spaces_instead_of_tabs (view))
-	{
-		spaces = get_real_indent_width (view);
-
-		tab_buffer = g_strnfill (spaces, ' ');
-	}
-	else if (gtk_source_view_get_indent_width (view) > 0)
-	{
-		guint indent_width;
-
-		indent_width = get_real_indent_width (view);
-		spaces = indent_width % gtk_source_view_get_tab_width (view);
-		tabs = indent_width / gtk_source_view_get_tab_width (view);
-
-		tab_buffer = get_indent_string (tabs, spaces);
-	}
-	else
-	{
-		tabs = 1;
-		tab_buffer = g_strdup ("\t");
-	}
-	
-	return tab_buffer;
-}
-
 static void
 geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 {
@@ -172,6 +115,59 @@ geditsmartindenter_plugin_finalize (GObject *object)
 			     "GeditsmartindenterPlugin finalizing");
 
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
+}
+
+static gchar *
+get_indent_string (guint tabs, guint spaces)
+{
+	gchar *str;
+
+	str = g_malloc (tabs + spaces + 1);
+	if (tabs > 0)
+		memset (str, '\t', tabs);
+	if (spaces > 0)
+		memset (str + tabs, ' ', spaces);
+	str[tabs + spaces] = '\0';
+
+	return str;
+}
+
+static gchar*
+get_indent_from_pair (GtkSourceView *view, GtkTextIter *iter)
+{
+	GtkTextIter start = *iter;
+	guint tab_width = gtk_source_view_get_tab_width (view);
+	guint total_size = 0;
+	gchar *indent = NULL;
+	
+	gtk_text_iter_set_line_offset (&start, 0);
+	do{
+		if (gtk_text_iter_get_char (&start) == '\t')
+			total_size += tab_width;
+		else
+			++total_size;
+		
+		gtk_text_iter_forward_char (&start);
+	}while (gtk_text_iter_compare (&start, iter) != 0);
+	
+	/*+1 Is the pair,by example )*/
+	total_size++;
+	
+	if (gtk_source_view_get_insert_spaces_instead_of_tabs (view))
+	{
+		indent = g_strnfill (total_size, ' ');
+	}
+	else
+	{
+		guint t, s;
+		
+		t = total_size / tab_width;
+		s = total_size  % tab_width;
+		
+		indent = get_indent_string (t, s);
+	}
+	
+	return indent;
 }
 
 static gboolean
@@ -245,7 +241,7 @@ get_indent (Indenter *indenter, const gchar *text)
 }
 
 static gchar*
-indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
+indenter_process (Indenter *indenter, GtkSourceView *view, GtkTextIter *iter, const gchar *text)
 {
 	gchar *indent = NULL;
 	/*TODO Store the regexp in cache*/
@@ -256,13 +252,13 @@ indenter_process (Indenter *indenter, GtkTextIter *iter, const gchar *text)
 	{
 		if (indenter->search_pair)
 		{
-			indent = get_indent (indenter, text);
-			
 			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
 			{
-				gchar *spaces = g_strnfill (gtk_text_iter_get_line_offset (iter) + 1, ' ');
-				g_free (indent);
-				indent = spaces;
+				indent = get_indent_from_pair (view, iter);
+			}
+			else
+			{
+				indent = get_indent (indenter, text);
 			}
 		}
 		else
@@ -318,7 +314,10 @@ key_press_cb (GtkTextView		*view,
 		{
 			temp_iter = location;
 			indenter = (Indenter*)l->data;
-			indent = indenter_process (indenter, &temp_iter, line_text);
+			indent = indenter_process (indenter,
+						   GTK_SOURCE_VIEW (view),
+						   &temp_iter,
+						   line_text);
 
 			if (indent) break;
 		}
