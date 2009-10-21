@@ -35,11 +35,17 @@
 
 #define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
 
+typedef enum{
+	INDENT,
+	INDENT_TO_PAIR,
+	INDENT_PAIR_LINE
+}IndenterType;
+
 typedef struct{
 	gchar *match;
 	gchar *indent;
 	gchar *append;
-	gboolean search_pair;
+	IndenterType type;
 	gchar *start_pair;
 	gchar *end_pair;
 } Indenter;
@@ -66,7 +72,7 @@ indenter_new (const gchar *match,
 	indenter->match = g_strdup (match);
 	indenter->indent = g_strdup (indent);
 	indenter->append = g_strdup (append);
-	indenter->search_pair = FALSE;
+	indenter->type = INDENT;
 	
 	return indenter;
 }
@@ -79,9 +85,22 @@ indenter_new_pair (const gchar *match,
 		   const gchar *end_pair)
 {
 	Indenter *indenter = indenter_new (match, indent, append);
-	indenter->search_pair = TRUE;
+	indenter->type = INDENT_TO_PAIR;
 	indenter->start_pair = g_strdup (start_pair);
 	indenter->end_pair = g_strdup (end_pair);
+	
+	return indenter;
+}
+
+static Indenter*
+indenter_new_pair_line (const gchar *match,
+			const gchar *indent,
+			const gchar *append,
+			const gchar *start_pair,
+			const gchar *end_pair)
+{
+	Indenter *indenter = indenter_new_pair (match, indent, append, start_pair, end_pair);
+	indenter->type = INDENT_PAIR_LINE;
 	
 	return indenter;
 }
@@ -106,6 +125,8 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 						 indenter_new ("(if|while|for)\\s*\\(.*\\)\\s*$", "+1", "	"));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
+	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+						 indenter_new_pair_line ("\\)\\s*$", "+1", NULL, "(", ")"));
 }
 
 static void
@@ -180,12 +201,12 @@ move_to_pair_char (GtkTextIter *iter,
 	gchar *c;
 	GtkTextIter prev_iter = *iter;
 	
-	g_debug ("searching pair %s", start_pair);
+	g_debug ("searching pair [%s]", start_pair);
 	
 	while (gtk_text_iter_backward_char (iter))
 	{
 		c = gtk_text_iter_get_slice (iter, &prev_iter);
-		
+		g_debug ("[%s]", c);
 		prev_iter = *iter;
 		
 		if (g_utf8_collate (end_pair, c) == 0)
@@ -206,6 +227,22 @@ move_to_pair_char (GtkTextIter *iter,
 		}
 	}
 	return found;
+}
+
+static gchar*
+get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
+{
+	GtkTextIter start, end;
+	
+	start = *iter;
+	gtk_text_iter_set_line_offset (&start, 0);
+	end = start;
+	gtk_text_iter_forward_to_line_end (&end);
+
+	return gtk_text_buffer_get_text (buffer,
+					 &start,
+					 &end,
+					 FALSE);
 }
 
 static gchar*
@@ -244,27 +281,39 @@ static gchar*
 indenter_process (Indenter *indenter, GtkSourceView *view, GtkTextIter *iter, const gchar *text)
 {
 	gchar *indent = NULL;
+	gboolean found = FALSE;
+	g_debug ("regexp [%s], type [%i]", indenter->match, indenter->type);
 	/*TODO Store the regexp in cache*/
 	if (g_regex_match_simple (indenter->match,
 				  text,
 				  0,
 				  0))
 	{
-		if (indenter->search_pair)
+		if (indenter->type == INDENT_TO_PAIR)
 		{
 			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
 			{
 				indent = get_indent_from_pair (view, iter);
-			}
-			else
-			{
-				indent = get_indent (indenter, text);
+				found = TRUE;
 			}
 		}
-		else
+		else if (indenter->type == INDENT_PAIR_LINE)
 		{
-			indent = get_indent (indenter, text);
+			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
+			{
+				gchar *pair_line_text = get_line_text (
+					gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)),
+								  iter);
+				
+				indent = get_indent (indenter, pair_line_text);
+				g_debug ("pair_line %s\nindent %s", pair_line_text, indent);
+				g_free (pair_line_text);
+				found = TRUE;
+			}
 		}
+
+		if (!found)
+			indent = get_indent (indenter, text);
 	}
 	
 	return indent;
@@ -285,7 +334,7 @@ key_press_cb (GtkTextView		*view,
 {
 	GList *l;
 	Indenter *indenter;
-	GtkTextIter location, start_line, end_line;
+	GtkTextIter location;
 	GtkTextIter temp_iter;
 	GtkTextBuffer *buffer;
 	gchar *line_text;
@@ -301,15 +350,8 @@ key_press_cb (GtkTextView		*view,
 		
 	if (gtk_text_iter_get_line_offset (&location) != 0)
 	{
-		start_line = location;
-		gtk_text_iter_set_line_offset (&start_line, 0);
-		end_line = start_line;
-		gtk_text_iter_forward_to_line_end (&end_line);
-
-		line_text = gtk_text_buffer_get_text (buffer,
-						      &start_line,
-						      &end_line,
-						      FALSE);
+		line_text = get_line_text (buffer, &location);
+		
 		for (l = self->priv->indenters; l != NULL ; l = g_list_next (l))
 		{
 			temp_iter = location;
