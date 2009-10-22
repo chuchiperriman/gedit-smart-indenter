@@ -48,6 +48,7 @@ typedef struct{
 	IndenterType type;
 	gchar *start_pair;
 	gchar *end_pair;
+	gboolean with_close_pair;
 } Indenter;
 
 struct _GeditsmartindenterPluginPrivate
@@ -88,6 +89,7 @@ indenter_new_pair (const gchar *match,
 	indenter->type = INDENT_TO_PAIR;
 	indenter->start_pair = g_strdup (start_pair);
 	indenter->end_pair = g_strdup (end_pair);
+	indenter->with_close_pair = FALSE;
 	
 	return indenter;
 }
@@ -97,10 +99,12 @@ indenter_new_pair_line (const gchar *match,
 			const gchar *indent,
 			const gchar *append,
 			const gchar *start_pair,
-			const gchar *end_pair)
+			const gchar *end_pair,
+			gboolean with_close_pair)
 {
 	Indenter *indenter = indenter_new_pair (match, indent, append, start_pair, end_pair);
 	indenter->type = INDENT_PAIR_LINE;
+	indenter->with_close_pair = with_close_pair;
 	
 	return indenter;
 }
@@ -126,7 +130,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
-						 indenter_new_pair_line ("\\)\\s*$", "+1", NULL, "(", ")"));
+						 indenter_new_pair_line ("\\)\\s*$", "+1", NULL, "(", ")", TRUE));
 }
 
 static void
@@ -194,9 +198,10 @@ get_indent_from_pair (GtkSourceView *view, GtkTextIter *iter)
 static gboolean
 move_to_pair_char (GtkTextIter *iter, 
 		   const gchar *start_pair,
-		   const gchar *end_pair)
+		   const gchar *end_pair,
+		   gboolean to_first_open_closed_pair)
 {
-	gint count = 0;
+	gint count = to_first_open_closed_pair ? -1 : 0;
 	gboolean found = FALSE;
 	gchar *c;
 	GtkTextIter prev_iter = *iter;
@@ -232,16 +237,14 @@ move_to_pair_char (GtkTextIter *iter,
 static gchar*
 get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 {
-	GtkTextIter start, end;
+	GtkTextIter start;
 	
 	start = *iter;
 	gtk_text_iter_set_line_offset (&start, 0);
-	end = start;
-	gtk_text_iter_forward_to_line_end (&end);
 
 	return gtk_text_buffer_get_text (buffer,
 					 &start,
-					 &end,
+					 iter,
 					 FALSE);
 }
 
@@ -291,7 +294,7 @@ indenter_process (Indenter *indenter, GtkSourceView *view, GtkTextIter *iter, co
 	{
 		if (indenter->type == INDENT_TO_PAIR)
 		{
-			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
+			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair, indenter->with_close_pair))
 			{
 				indent = get_indent_from_pair (view, iter);
 				found = TRUE;
@@ -299,7 +302,7 @@ indenter_process (Indenter *indenter, GtkSourceView *view, GtkTextIter *iter, co
 		}
 		else if (indenter->type == INDENT_PAIR_LINE)
 		{
-			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair))
+			if (move_to_pair_char (iter, indenter->start_pair, indenter->end_pair, indenter->with_close_pair))
 			{
 				gchar *pair_line_text = get_line_text (
 					gtk_text_view_get_buffer (GTK_TEXT_VIEW (view)),
