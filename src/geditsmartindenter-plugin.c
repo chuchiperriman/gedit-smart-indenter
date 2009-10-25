@@ -130,7 +130,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
-						 indenter_new_pair_line ("\\)\\s*$", "+1", NULL, "(", ")", TRUE));
+						 indenter_new_pair_line ("\\)\\s*$", "+1", "\t", "(", ")", TRUE));
 }
 
 static void
