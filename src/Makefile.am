@@ -16,6 +16,8 @@ libgeditsmartindenter_la_SOURCES = \
 	geditsmartindenter-plugin.c	\
 	gsi-indenter.h			\
 	gsi-indenter.c			\
+	gsi-indenter-utils.h		\
+	gsi-indenter-utils.c		\
 	gsi-indenters-manager.h		\
 	gsi-indenters-manager.c		\
 	gsi-indenter-simple.h		\

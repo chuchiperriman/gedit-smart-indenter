@@ -3,9 +3,7 @@
 #include "gsi-indenters-manager.h"
 #include "gsi-indenter-simple.h"
 
-G_DEFINE_TYPE (GsiIndentersManager, gsi_indenters_manager, G_TYPE_OBJECT)
-
-#define GSI_INDENTERS_MANAGER_PRIVATE(o) \
+#define GSI_INDENTERS_MANAGER_GET_PRIVATE(o) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTERS_MANAGER, GsiIndentersManagerPrivate))
 
 struct _GsiIndentersManagerPrivate
@@ -13,6 +11,8 @@ struct _GsiIndentersManagerPrivate
 	GHashTable *indenters;
 	GsiIndenter *default_indenter;
 };
+
+G_DEFINE_TYPE (GsiIndentersManager, gsi_indenters_manager, G_TYPE_OBJECT)
 
 static void
 gsi_indenters_manager_dispose (GObject *object)
@@ -30,16 +30,16 @@ gsi_indenters_manager_class_init (GsiIndentersManagerClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-	g_type_class_add_private (object_class, sizeof (GsiIndentersManagerPrivate));
-
 	object_class->dispose = gsi_indenters_manager_dispose;
+    
+	g_type_class_add_private (object_class, sizeof (GsiIndentersManagerPrivate));
 }
 
 static void
 gsi_indenters_manager_init (GsiIndentersManager *self)
 {
 
-  self->priv = GSI_INDENTERS_MANAGER_PRIVATE (self);
+	self->priv = GSI_INDENTERS_MANAGER_GET_PRIVATE (self);
 
 	self->priv->indenters = g_hash_table_new_full (g_str_hash,
 						       g_str_equal,

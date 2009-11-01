@@ -49,7 +49,6 @@ struct _GeditsmartindenterPlugin
 {
 	GeditPlugin parent_instance;
 
-	/*< private >*/
 	GeditsmartindenterPluginPrivate *priv;
 };
 

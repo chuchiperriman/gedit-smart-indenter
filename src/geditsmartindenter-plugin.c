@@ -32,10 +32,12 @@
 
 
 #define WINDOW_DATA_KEY	"GeditsmartindenterPluginWindowData"
+#define VIEW_KEY	"GeditsmartindenterPluginView"
 
 #define GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE(object)	(G_TYPE_INSTANCE_GET_PRIVATE ((object), TYPE_GEDITSMARTINDENTER_PLUGIN, GeditsmartindenterPluginPrivate))
 
 #define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
+#define get_view(buffer) ((GtkTextView *) (g_object_get_data (G_OBJECT (buffer), VIEW_KEY)))
 
 typedef enum{
 	INDENT,
@@ -338,6 +340,32 @@ window_data_free (WindowData *data)
         g_slice_free (WindowData, data);
 }
 
+static void
+insert_text_cb (GtkTextBuffer *buffer,
+		GtkTextIter   *location,
+		gchar         *text,
+		gint           len,
+		GeditsmartindenterPlugin *self)
+{
+	gchar c = text[len-1];
+	if (c == '\n')
+	{
+		GtkTextView *view = get_view (buffer);
+		GsiIndenter *indenter;
+		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
+		const gchar *lang_id = NULL;
+		if (language)
+		{
+			lang_id = gtk_source_language_get_id (language);
+		}
+		indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
+		g_assert (indenter != NULL);
+	
+		gsi_indenter_indent_new_line (indenter, view, location);
+	}
+	
+}
+
 static gboolean
 key_press_cb (GtkTextView		*view,
 		GdkEventKey 		*event,
@@ -425,10 +453,12 @@ key_press_cb (GtkTextView		*view,
 static void
 document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 {
-	g_signal_connect (view,
-			  "key-press-event",
-			  G_CALLBACK (key_press_cb),
-			  self);
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+	g_object_set_data (G_OBJECT (buffer), VIEW_KEY, view);
+	g_signal_connect_after (buffer,
+				"insert-text",
+				G_CALLBACK (insert_text_cb),
+				self);
 }
 
 static void

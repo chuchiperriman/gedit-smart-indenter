@@ -30,20 +30,22 @@ G_BEGIN_DECLS
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
   GSI_TYPE_INDENTERS_MANAGER, GsiIndentersManagerClass))
 
+typedef struct _GsiIndentersManager GsiIndentersManager;
+typedef struct _GsiIndentersManagerClass GsiIndentersManagerClass;
 typedef struct _GsiIndentersManagerPrivate GsiIndentersManagerPrivate;
 
-typedef struct {
+struct _GsiIndentersManager{
 	GObject parent;
 	GsiIndentersManagerPrivate *priv;
-} GsiIndentersManager;
+};
 
-typedef struct {
+struct _GsiIndentersManagerClass{
 	GObjectClass parent_class;
-} GsiIndentersManagerClass;
+};
 
-GType gsi_indenters_manager_get_type (void);
+GType 			 gsi_indenters_manager_get_type 	(void) G_GNUC_CONST;
 
-GsiIndentersManager	*gsi_indenters_manager_new	(void);
+GsiIndentersManager	*gsi_indenters_manager_new		(void);
 
 void			 gsi_indenters_manager_register		(GsiIndentersManager *self,
 								 const gchar *lang_id,
