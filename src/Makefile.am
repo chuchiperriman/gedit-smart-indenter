@@ -13,7 +13,11 @@ plugin_LTLIBRARIES = libgeditsmartindenter.la
 
 libgeditsmartindenter_la_SOURCES = \
 	geditsmartindenter-plugin.h	\
-	geditsmartindenter-plugin.c
+	geditsmartindenter-plugin.c	\
+	gsi-indenter.h			\
+	gsi-indenter.c			\
+	gsi-indenters-manager.h		\
+	gsi-indenters-manager.c
 
 libgeditsmartindenter_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
 
