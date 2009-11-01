@@ -23,10 +23,12 @@
 #endif
 
 #include "geditsmartindenter-plugin.h"
+#include "gsi-indenters-manager.h"
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
 #include <gdk/gdkkeysyms.h>
+#include <gtksourceview/gtksourceview.h>
 
 
 #define WINDOW_DATA_KEY	"GeditsmartindenterPluginWindowData"
@@ -54,6 +56,7 @@ typedef struct{
 struct _GeditsmartindenterPluginPrivate
 {
 	GList *indenters;
+	GsiIndentersManager *manager;
 };
 
 typedef struct{
@@ -131,6 +134,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
 	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 						 indenter_new_pair_line ("\\)\\s*$", "+1", "\t", "(", ")", TRUE));
+	plugin->priv->manager = gsi_indenters_manager_new ();
 }
 
 static void
@@ -139,6 +143,10 @@ geditsmartindenter_plugin_finalize (GObject *object)
 	gedit_debug_message (DEBUG_PLUGINS,
 			     "GeditsmartindenterPlugin finalizing");
 
+	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (object);
+	
+	g_object_unref (self->priv->manager);
+	
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
 }
 
@@ -335,6 +343,26 @@ key_press_cb (GtkTextView		*view,
 		GdkEventKey 		*event,
 		GeditsmartindenterPlugin *self)
 {
+	GsiIndenter *indenter;
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
+	GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
+	GtkTextIter location;
+	const gchar *lang_id = NULL;
+	if (language)
+	{
+		lang_id = gtk_source_language_get_id (language);
+	}
+	indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
+	g_assert (indenter != NULL);
+	
+	gtk_text_buffer_get_iter_at_mark (buffer, 
+					  &location,
+					  gtk_text_buffer_get_insert (GTK_TEXT_BUFFER (buffer)));
+	
+	gsi_indenter_indent_new_line (indenter, view, &location);
+	
+	return FALSE;
+	/*
 	GList *l;
 	Indenter *indenter;
 	GtkTextIter location;
@@ -390,13 +418,8 @@ key_press_cb (GtkTextView		*view,
 		
 		return TRUE;
 	}
-	//g_debug ("location end %i: ", gtk_text_iter_get_line_offset (&location));
-	/*
-	g_signal_handlers_unblock_by_func (buffer,
-					   insert_cb,
-					   self);
-	*/
 	return FALSE;
+	*/
 }
 
 static void
