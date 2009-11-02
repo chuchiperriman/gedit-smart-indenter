@@ -36,7 +36,29 @@ gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
 
 	gtk_text_iter_set_line_index (&start, 0);
 
+	gtk_text_buffer_begin_user_action (buffer);
 	gtk_text_buffer_insert (buffer, &start, indentation, -1);
+	gtk_text_buffer_end_user_action (buffer);
+}
+
+static void
+gsi_indenter_indent_line_impl (GsiIndenter *indenter,
+			       GtkTextView *view,
+			       GtkTextIter *iter)
+{
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
+	gint line = gtk_text_iter_get_line (iter) -1;
+	gchar *indentation = gsi_indenter_utils_get_line_indentation (buffer,line);
+	GtkTextIter start = *iter;
+
+	if (!indentation)
+		return;
+
+	gtk_text_iter_set_line_index (&start, 0);
+	
+	gtk_text_buffer_begin_user_action (buffer);
+	gtk_text_buffer_insert (buffer, &start, indentation, -1);
+	gtk_text_buffer_end_user_action (buffer);
 }
 
 static void
@@ -47,6 +69,7 @@ gsi_indenter_iface_init (gpointer g_iface,
 
         /* Interface data getter implementations */
         iface->indent_new_line = gsi_indenter_indent_new_line_impl;
+        iface->indent_line = gsi_indenter_indent_line_impl;
 }
 
 static void
