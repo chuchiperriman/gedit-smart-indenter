@@ -12,7 +12,8 @@ gchar		*gsi_indenter_utils_get_line_indentation	(GtkTextBuffer	*buffer,
 								 gint		 line);
 
 gboolean	 gsi_indenter_utils_move_to_no_space		(GtkTextIter *iter,
-								 gint direction);
+								 gint direction,
+								 gboolean ignore_new_line);
 
 gchar		*gsi_indenter_utils_get_indent_from_tabs	(guint tabs,
 								 guint spaces);

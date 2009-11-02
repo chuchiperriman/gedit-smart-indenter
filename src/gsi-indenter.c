@@ -24,11 +24,10 @@ gsi_indenter_init (GsiIndenterInterface *iface)
 	iface->indent_new_line = gsi_indenter_indent_new_line_default;
 	iface->indent_line = gsi_indenter_indent_line_default;
 
-  if (!is_initialized)
-    {
-      /* add properties and signals to the interface here */
-
-      is_initialized = TRUE;
+	if (!is_initialized)
+	{
+	/* add properties and signals to the interface here */
+	is_initialized = TRUE;
     }
 }
 

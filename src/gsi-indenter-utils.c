@@ -40,7 +40,8 @@ gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
 
 gboolean
 gsi_indenter_utils_move_to_no_space (GtkTextIter *iter,
-				     gint direction)
+				     gint direction,
+				     gboolean ignore_new_line)
 {
 	gunichar c;
 	gboolean moved = TRUE;
@@ -49,7 +50,7 @@ gsi_indenter_utils_move_to_no_space (GtkTextIter *iter,
 	
 	c = gtk_text_iter_get_char (iter);
 	
-	while (g_unichar_isspace (c))
+	while (g_unichar_isspace (c) && (ignore_new_line || (c != '\n' && c != '\r')))
 	{
 		if (!gtk_text_iter_forward_chars (iter, direction))
 		{

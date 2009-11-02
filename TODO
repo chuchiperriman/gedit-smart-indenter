@@ -2,13 +2,17 @@ Milestone 2
 -----------
 
 [ ] Do we must to use special keys for indentation or only TAB?
-[ ] Add indent_line and indent_region to the indenter interface
+[X] Add indent_line to the indenter interface
+[ ] Add indent_region to the indenter interface
 Plugin:
-[ ] Call to indent_line when the user press XXX
+[X] Call to indent_line when the user press XXX
 [ ] Call to indent_region when the user press XXX with a region selected
     	 * Do we must to set the start and end iter to the line start or 
 	   only the real selected position?
-[ ] Indenter simple: implement indent_line and indent_region
+Indenter simple:
+[X] Implement indent_line
+[ ] Implement indent_region
+[ ] Ignore empty lines when search previous indentation
 
 Milestone 1
 -----------

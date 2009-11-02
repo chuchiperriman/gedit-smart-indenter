@@ -109,14 +109,47 @@ insert_text_cb (GtkTextBuffer *buffer,
 	
 }
 
+static gboolean
+key_press_event_cb (GtkTextView *view,
+		    GdkEventKey *event,
+		    GeditsmartindenterPlugin *self)
+{
+	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_j)
+	{
+		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
+		GtkTextIter location;
+		gtk_text_buffer_get_iter_at_mark (buffer,
+						  &location,
+						  gtk_text_buffer_get_insert (buffer));
+		/*TODO Create a function to get the indenter of a view*/
+		GsiIndenter *indenter;
+		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
+		const gchar *lang_id = NULL;
+		if (language)
+		{
+			lang_id = gtk_source_language_get_id (language);
+		}
+		indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
+		g_assert (indenter != NULL);
+	
+		gsi_indenter_indent_line (indenter, view, &location);
+	}
+	return FALSE;
+}
+
 static void
 document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 {
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
 	g_object_set_data (G_OBJECT (buffer), VIEW_KEY, view);
+	
 	g_signal_connect_after (buffer,
 				"insert-text",
 				G_CALLBACK (insert_text_cb),
+				self);
+	g_signal_connect_after (view,
+				"key-press-event",
+				G_CALLBACK (key_press_event_cb),
 				self);
 }
 

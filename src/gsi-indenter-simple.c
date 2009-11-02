@@ -50,15 +50,22 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	gint line = gtk_text_iter_get_line (iter) -1;
 	gchar *indentation = gsi_indenter_utils_get_line_indentation (buffer,line);
 	GtkTextIter start = *iter;
+	GtkTextIter end;
 
 	if (!indentation)
 		return;
 
 	gtk_text_iter_set_line_index (&start, 0);
 	
-	gtk_text_buffer_begin_user_action (buffer);
-	gtk_text_buffer_insert (buffer, &start, indentation, -1);
-	gtk_text_buffer_end_user_action (buffer);
+	end = start;
+	
+	if (gsi_indenter_utils_move_to_no_space (&end,1, FALSE))
+	{
+		gtk_text_buffer_begin_user_action (buffer);
+		gtk_text_buffer_delete (buffer, &start, &end);
+		gtk_text_buffer_insert (buffer, &start, indentation, -1);
+		gtk_text_buffer_end_user_action (buffer);
+	}
 }
 
 static void
