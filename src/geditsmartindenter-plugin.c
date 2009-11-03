@@ -90,6 +90,10 @@ insert_text_cb (GtkTextBuffer *buffer,
 		gint           len,
 		GeditsmartindenterPlugin *self)
 {
+	/*TODO prevent paste by the moment*/
+	if (len >2)
+		return;
+		
 	gchar c = text[len-1];
 	if (c == '\n')
 	{
@@ -117,10 +121,8 @@ key_press_event_cb (GtkTextView *view,
 	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_j)
 	{
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
-		GtkTextIter location;
-		gtk_text_buffer_get_iter_at_mark (buffer,
-						  &location,
-						  gtk_text_buffer_get_insert (buffer));
+		GtkTextIter start, end;
+		
 		/*TODO Create a function to get the indenter of a view*/
 		GsiIndenter *indenter;
 		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
@@ -131,8 +133,19 @@ key_press_event_cb (GtkTextView *view,
 		}
 		indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
 		g_assert (indenter != NULL);
-	
-		gsi_indenter_indent_line (indenter, view, &location);
+		
+		if (gtk_text_buffer_get_selection_bounds (buffer, &start, &end))
+		{
+			g_debug ("region");
+			gsi_indenter_indent_region (indenter, view, &start, &end);
+		}
+		else
+		{
+			gtk_text_buffer_get_iter_at_mark (buffer,
+							  &start,
+							  gtk_text_buffer_get_insert (buffer));
+			gsi_indenter_indent_line (indenter, view, &start);
+		}
 	}
 	return FALSE;
 }

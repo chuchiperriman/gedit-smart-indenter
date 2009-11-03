@@ -36,6 +36,11 @@ struct _GsiIndenterInterface
 	void (*indent_line) (GsiIndenter	*self,
 			     GtkTextView	*view,
 			     GtkTextIter	*iter);
+	
+	void (*indent_region) (GsiIndenter	*self,
+			       GtkTextView	*view,
+			       GtkTextIter	*start,
+			       GtkTextIter	*end);
 };
 
 GType gsi_indenter_get_type (void);
@@ -47,6 +52,11 @@ void gsi_indenter_indent_new_line (GsiIndenter *self,
 void gsi_indenter_indent_line (GsiIndenter	*self,
 			       GtkTextView	*view,
 			       GtkTextIter	*iter);
+
+void gsi_indenter_indent_region (GsiIndenter	*self,
+				 GtkTextView	*view,
+				 GtkTextIter	*start,
+				 GtkTextIter	*end);
 
 G_END_DECLS
 
