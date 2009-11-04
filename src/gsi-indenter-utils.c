@@ -114,8 +114,22 @@ gsi_indenter_utils_get_indent_to_iter (GtkSourceView *view, GtkTextIter *iter)
 		
 		indent = gsi_indenter_utils_get_indent_from_tabs (t, s);
 	}
-	
+
 	return indent;
 }
+
+gboolean
+gsi_indenter_utils_is_empty_line (GtkTextBuffer	*buffer,
+				  gint		 line)
+{
+	GtkTextIter iter;
+	gunichar c;
+	gtk_text_buffer_get_iter_at_line (buffer, &iter, line);
+	c = gtk_text_iter_get_char (&iter);
+	
+	return c == '\n' || c == '\r';
+}
+
+
 
 

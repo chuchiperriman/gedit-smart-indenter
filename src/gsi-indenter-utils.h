@@ -21,6 +21,8 @@ gchar		*gsi_indenter_utils_get_indent_from_tabs	(guint tabs,
 gchar		*gsi_indenter_utils_get_indent_to_iter		(GtkSourceView *view, 
 								 GtkTextIter *iter);
 
+gboolean	 gsi_indenter_utils_is_empty_line		(GtkTextBuffer	*buffer,
+								 gint		 line);
 G_END_DECLS
 
 #endif /* _GSI_INDENTER_UTILS_H */
