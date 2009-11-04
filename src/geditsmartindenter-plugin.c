@@ -122,7 +122,9 @@ key_press_event_cb (GtkTextView *view,
 	{
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 		GtkTextIter start, end;
-		
+
+		g_signal_handlers_block_by_func (buffer, insert_text_cb, self);
+				
 		/*TODO Create a function to get the indenter of a view*/
 		GsiIndenter *indenter;
 		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
@@ -136,7 +138,6 @@ key_press_event_cb (GtkTextView *view,
 		
 		if (gtk_text_buffer_get_selection_bounds (buffer, &start, &end))
 		{
-			g_debug ("region");
 			gsi_indenter_indent_region (indenter, view, &start, &end);
 		}
 		else
@@ -146,6 +147,8 @@ key_press_event_cb (GtkTextView *view,
 							  gtk_text_buffer_get_insert (buffer));
 			gsi_indenter_indent_line (indenter, view, &start);
 		}
+		
+		g_signal_handlers_unblock_by_func (buffer, insert_text_cb, self);
 	}
 	return FALSE;
 }
