@@ -22,7 +22,7 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterSimple,
                                                 gsi_indenter_iface_init))
 
 static void
-gsi_indenter_indent_line_impl (GsiIndenter *indenter,
+gsi_indenter_indent_line_real (GsiIndenter *indenter,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
@@ -42,20 +42,32 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 		line++;
 	}
 	
-	if (!indentation)
-		return;
-
 	gtk_text_iter_set_line_index (&start, 0);
 	
 	end = start;
 	
 	if (gsi_indenter_utils_move_to_no_space (&end,1, FALSE))
 	{
-		gtk_text_buffer_begin_user_action (buffer);
+		line = gtk_text_iter_get_line (&start);
 		gtk_text_buffer_delete (buffer, &start, &end);
-		gtk_text_buffer_insert (buffer, &start, indentation, -1);
-		gtk_text_buffer_end_user_action (buffer);
+		if (indentation)
+		{
+			gtk_text_buffer_get_iter_at_line (buffer, &start, line);
+			gtk_text_buffer_insert (buffer, &start, indentation, -1);
+		}
 	}
+}
+
+static void
+gsi_indenter_indent_line_impl (GsiIndenter *indenter,
+			       GtkTextView *view,
+			       GtkTextIter *iter)
+{
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
+	gtk_text_buffer_begin_user_action (buffer);
+	gsi_indenter_indent_line_real (indenter, view, iter);
+	gtk_text_buffer_end_user_action (buffer);
+	
 }
 
 static void
@@ -83,7 +95,7 @@ gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 	while (start_line <= end_line)
 	{
 		gtk_text_buffer_get_iter_at_line (buffer, &iter, start_line);
-		gsi_indenter_indent_line_impl (indenter, view, &iter);
+		gsi_indenter_indent_line_real (indenter, view, &iter);
 		start_line++;
 		
 	}
