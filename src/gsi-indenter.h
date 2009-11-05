@@ -44,8 +44,8 @@ struct _GsiIndenterInterface
 	
 	gboolean (*has_relocators) (GsiIndenter	*self);
 	
-	gchar* (*get_relocators) (GsiIndenter	*self,
-				  GtkTextView	*view);
+	const gchar* (*get_relocators) (GsiIndenter	*self,
+					GtkTextView	*view);
 	
 	gboolean (*relocate) (GsiIndenter	*self,
 			      GtkTextView	*view,
