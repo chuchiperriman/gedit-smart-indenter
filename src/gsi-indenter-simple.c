@@ -46,7 +46,7 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	
 	end = start;
 	
-	if (gsi_indenter_utils_move_to_no_space (&end,1, FALSE))
+	if (gsi_indenter_utils_move_to_no_space (&end, 1, FALSE))
 	{
 		line = gtk_text_iter_get_line (&start);
 		gtk_text_buffer_delete (buffer, &start, &end);

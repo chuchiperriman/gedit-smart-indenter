@@ -10,7 +10,8 @@ typedef struct _GsiIndenterCxxPrivate GsiIndenterCxxPrivate;
 
 struct _GsiIndenterCxxPrivate
 {
-	gboolean dummy;
+	gboolean use_spaces;
+	guint tab_width;
 };
 
 static void gsi_indenter_iface_init (gpointer g_iface, gpointer iface_data);

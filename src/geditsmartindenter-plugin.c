@@ -33,11 +33,13 @@
 
 #define WINDOW_DATA_KEY	"GeditsmartindenterPluginWindowData"
 #define VIEW_KEY	"GeditsmartindenterPluginView"
+#define ENABLED_KEY     "GeditsmartindenterPluginEnabled"
 
 #define GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE(object)	(G_TYPE_INSTANCE_GET_PRIVATE ((object), TYPE_GEDITSMARTINDENTER_PLUGIN, GeditsmartindenterPluginPrivate))
 
 #define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
 #define get_view(buffer) ((GtkTextView *) (g_object_get_data (G_OBJECT (buffer), VIEW_KEY)))
+#define is_enabled(view) ((g_object_get_data (G_OBJECT (view), ENABLED_KEY)) != NULL)
 
 struct _GeditsmartindenterPluginPrivate
 {
@@ -167,6 +169,7 @@ document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 				"key-press-event",
 				G_CALLBACK (key_press_event_cb),
 				self);
+	g_object_set_data (G_OBJECT (view), ENABLED_KEY, buffer);
 }
 
 static void
@@ -175,8 +178,9 @@ tab_changed_cb (GeditWindow *geditwindow,
                 GeditsmartindenterPlugin   *self)
 {
         GeditView *view = gedit_tab_get_view (tab);
-
-        document_enable (self, view);
+	
+	if (!is_enabled (view))
+	  document_enable (self, view);
 }
 
 
@@ -200,9 +204,9 @@ impl_activate (GeditPlugin *plugin,
                                 wdata,
                                 (GDestroyNotify) window_data_free);
 
-	g_signal_connect (window, "active-tab-changed",
-                          G_CALLBACK (tab_changed_cb),
-                          self);
+	g_signal_connect_after (window, "active-tab-changed",
+				G_CALLBACK (tab_changed_cb),
+				self);
 
 	/* TODO
         g_signal_connect (window, "active-tab-state-changed",
