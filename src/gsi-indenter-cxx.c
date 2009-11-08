@@ -22,6 +22,20 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterCxx,
                          G_IMPLEMENT_INTERFACE (GSI_TYPE_INDENTER,
                                                 gsi_indenter_iface_init))
 
+
+//	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+//-
+//indenter_new (".*\\/\\*(?!.*\\*/)", "+1", " * "));
+/*
+-	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+-						 indenter_new (".*\\{[^\\}]*", "+1", "	"));
+-	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+-						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
+-	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+-						 indenter_new ("(if|while|for)\\s*\\(.*\\)\\s*$", "+1", "	"));
+-	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
+-						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
+*/
 static void
 gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			       GtkTextView *view,
