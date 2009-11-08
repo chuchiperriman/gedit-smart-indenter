@@ -24,6 +24,7 @@
 
 #include "geditsmartindenter-plugin.h"
 #include "gsi-indenters-manager.h"
+#include "gsi-indenter-cxx.h"
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
@@ -56,12 +57,20 @@ GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
 static void
 geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 {
+	GsiIndenter *indenter;
+	
 	plugin->priv = GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE (plugin);
 
 	gedit_debug_message (DEBUG_PLUGINS,
 			     "GeditsmartindenterPlugin initializing");
 
 	plugin->priv->manager = gsi_indenters_manager_new ();
+	
+	indenter = gsi_indenter_cxx_new ();
+	gsi_indenters_manager_register (plugin->priv->manager,
+					"c",
+					indenter);
+	g_object_unref (indenter);
 }
 
 static void
@@ -92,28 +101,61 @@ insert_text_cb (GtkTextBuffer *buffer,
 		gint           len,
 		GeditsmartindenterPlugin *self)
 {
+	GsiIndenter *indenter;
+	GtkTextView *view;
+	GtkSourceLanguage *language;
+	const gchar *lang_id = NULL;
+	const gchar *relocators = NULL;
+	gchar c;
+	gboolean found = FALSE;
+
 	/*TODO prevent paste by the moment*/
 	if (len >2)
 		return;
+
+	view = get_view (buffer);
 		
-	gchar c = text[len-1];
+	language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
+	
+	if (language)
+	{
+		lang_id = gtk_source_language_get_id (language);
+	}
+	indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
+	g_assert (indenter != NULL);
+		
+	c = text[len-1];
 	if (c == '\n')
 	{
 		g_debug ("insert");
-		GtkTextView *view = get_view (buffer);
-		GsiIndenter *indenter;
-		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
-		const gchar *lang_id = NULL;
-		if (language)
-		{
-			lang_id = gtk_source_language_get_id (language);
-		}
-		indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
-		g_assert (indenter != NULL);
-	
 		gsi_indenter_indent_new_line (indenter, view, location);
 		g_debug ("end insert");
+		return;
 	}
+	
+	if (!gsi_indenter_has_relocators (indenter))
+		return;
+	
+	relocators = gsi_indenter_get_relocators (indenter, view);
+	
+	if (!relocators)
+		return;
+	
+	while (*relocators != '\0')
+	{
+	  if (c == *relocators)
+	    {
+	      found = TRUE;
+	      break;
+	    }
+	  relocators++;
+	}
+	
+	if (!found)
+	  return;
+
+	if (gsi_indenter_relocate (indenter, view, location, c))
+	  g_debug ("relocated");
 }
 
 static gboolean

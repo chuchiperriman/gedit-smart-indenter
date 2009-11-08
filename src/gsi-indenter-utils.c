@@ -41,7 +41,7 @@ gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
 				return NULL;
 
 			indentation = gtk_text_iter_get_slice (&start, &end);
-			
+			break;
 		}
 		line++;
 	}
@@ -165,4 +165,54 @@ gsi_indenter_utils_replace_indentation (GtkTextBuffer	*buffer,
 	}
 }
 
+gboolean
+gsi_indenter_utils_find_open_char (GtkTextIter *iter,
+				   gchar open,
+				   gchar close,
+				   gboolean skip_first)
+{
+	GtkTextIter copy;
+	gunichar c;
+	gboolean moved = FALSE;
+	gint counter = 0;
+	
+	g_return_val_if_fail (iter != NULL, FALSE);
+	
+	copy = *iter;
+	
+	/*
+	 * FIXME: We have to take care of number of lines to go back
+	 */
+	c = gtk_text_iter_get_char (&copy);
+	do
+	{
+		/*
+		 * This algorithm has to work even if we have if (xxx, xx(),
+		 */
+		if (c == close)
+		{
+			if (skip_first)
+				skip_first = FALSE;
+			else			
+				counter--;
+		}
+		if (c == open)
+		{
+			if (counter != 0)
+			{
+				counter++;
+			}
+			else
+			{
+				*iter = copy;
+				moved = TRUE;
+				break;
+			}
+		}
+	}
+	while (gtk_text_iter_backward_char (&copy) &&
+	       (c = gtk_text_iter_get_char (&copy)));
+	
+	return moved;
+}
 

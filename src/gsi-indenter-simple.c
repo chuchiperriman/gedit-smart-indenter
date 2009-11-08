@@ -27,10 +27,10 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 			       GtkTextIter *iter)
 {
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
-	gint line = gtk_text_iter_get_line (iter) -1;
+	gint line = gtk_text_iter_get_line (iter);
 	gchar *indentation = NULL;
 	
-	indentation = gsi_indenter_utils_get_line_indentation (buffer, line, TRUE);
+	indentation = gsi_indenter_utils_get_line_indentation (buffer, line -1, TRUE);
 	
 	gsi_indenter_utils_replace_indentation (buffer, line, indentation);
 	
