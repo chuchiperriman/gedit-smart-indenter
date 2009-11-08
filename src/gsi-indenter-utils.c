@@ -216,3 +216,24 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	return moved;
 }
 
+gchar*
+gsi_indenter_utils_get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
+{
+	GtkTextIter start, end;
+	gchar c;
+		
+	start = *iter;
+	gtk_text_iter_set_line_offset (&start, 0);
+	c = gtk_text_iter_get_char (&start);
+	if (c == '\r' || c == '\n')
+		return "";
+
+	end = start;
+	gtk_text_iter_forward_to_line_end (&end);
+	
+	return gtk_text_buffer_get_text (buffer,
+					 &start,
+					 &end,
+					 FALSE);
+}
+

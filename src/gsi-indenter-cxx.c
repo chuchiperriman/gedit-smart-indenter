@@ -25,7 +25,6 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterCxx,
 
 //	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 //-
-//indenter_new (".*\\/\\*(?!.*\\*/)", "+1", " * "));
 /*
 -	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 -						 indenter_new (".*\\{[^\\}]*", "+1", "	"));
@@ -33,9 +32,55 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterCxx,
 -						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
 -	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 -						 indenter_new ("(if|while|for)\\s*\\(.*\\)\\s*$", "+1", "	"));
--	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
--						 indenter_new ("^\\s*\\*[^/].*$", "+1", "* "));
 */
+
+static gboolean
+gsi_indenter_cxx_indent_regexp (GsiIndenter *indenter,
+				GtkTextBuffer *buffer,
+				GtkTextIter *iter,
+				const gchar *regexp,
+				guint indentation,
+				const gchar *append)
+{
+	GtkTextIter prev_iter = *iter;
+	gchar *line_text;
+	
+	gtk_text_iter_backward_line (&prev_iter);
+	
+	line_text = gsi_indenter_utils_get_line_text (buffer, &prev_iter);
+	if (g_regex_match_simple (regexp,
+				  line_text,
+				  0,
+				  0))
+	{
+		gint line = gtk_text_iter_get_line (iter);
+		gchar *indent = gsi_indenter_utils_get_line_indentation (buffer, line -1, TRUE);
+		gchar *final_indent;
+
+		
+		if (append)
+		{
+			if (indent)
+				final_indent = g_strjoin (NULL, indent, append, NULL);
+			else
+				final_indent = g_strdup (append);
+		}
+		else
+		{
+			final_indent = g_strdup (indent);
+		}
+		gtk_text_buffer_begin_user_action (buffer);
+		gsi_indenter_utils_replace_indentation (buffer, line, final_indent);
+		gtk_text_buffer_end_user_action (buffer);
+		
+		g_free (final_indent);
+		return TRUE;
+	}
+	
+	return FALSE;
+
+}
+
 static void
 gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			       GtkTextView *view,
@@ -50,17 +95,35 @@ gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
 				   GtkTextIter *iter)
 {
 	/*TODO Previous indentation by the moment*/
-	g_debug ("cxx new");
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	gint line = gtk_text_iter_get_line (iter);
 	gchar *indentation = NULL;
+	gboolean found = FALSE;
 	
-	indentation = gsi_indenter_utils_get_line_indentation (buffer, line -1, TRUE);
+	found = gsi_indenter_cxx_indent_regexp (indenter,
+						buffer,
+						iter,
+						".*\\/\\*(?!.*\\*/)",
+						0,
+						" * ");
+
+	if (found)
+		return;
+		
+	found = gsi_indenter_cxx_indent_regexp (indenter,
+						buffer,
+						iter,
+						"^\\s*\\*[^/].*$",
+						0,
+						"* ");
+	if (found)
+		return;
+		
+	indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
 	
 	gtk_text_buffer_begin_user_action (buffer);
 	gsi_indenter_utils_replace_indentation (buffer, line, indentation);
 	gtk_text_buffer_end_user_action (buffer);
-	g_debug ("end cxx new");
 }
 
 static void
@@ -91,14 +154,10 @@ gsi_indenter_relocate_impl (GsiIndenter	*self,
 			    GtkTextIter	*iter,
 			    gchar	 relocator)
 {
-	g_debug ("cxx: relocating");
 	if (relocator == '}')
 	{
 		GtkTextIter open_iter = *iter;
-		if (gsi_indenter_utils_find_open_char (&open_iter,
-					   '{',
-					   '}',
-					   TRUE))
+		if (gsi_indenter_utils_find_open_char (&open_iter, '{', '}', TRUE))
 		{
 			gint open_line = gtk_text_iter_get_line (&open_iter);
 			gint line = gtk_text_iter_get_line (iter);
@@ -106,7 +165,6 @@ gsi_indenter_relocate_impl (GsiIndenter	*self,
 			GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 			indentation = gsi_indenter_utils_get_line_indentation (buffer, open_line, FALSE);
 
-			g_debug ("ind [%s][%i-%i]", indentation, open_line, line);
 			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_utils_replace_indentation (buffer, line, indentation);
 			gtk_text_buffer_end_user_action (buffer);
