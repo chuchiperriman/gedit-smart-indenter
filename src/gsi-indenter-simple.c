@@ -29,33 +29,11 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	gint line = gtk_text_iter_get_line (iter) -1;
 	gchar *indentation = NULL;
-	GtkTextIter start = *iter;
-	GtkTextIter end;
-
-	while (line >= 0)
-	{
-		if (!gsi_indenter_utils_is_empty_line (buffer, line))
-		{
-			indentation =  gsi_indenter_utils_get_line_indentation (buffer,line);
-			break;
-		}
-		line++;
-	}
 	
-	gtk_text_iter_set_line_index (&start, 0);
+	indentation = gsi_indenter_utils_get_line_indentation (buffer, line, TRUE);
 	
-	end = start;
+	gsi_indenter_utils_replace_indentation (buffer, line, indentation);
 	
-	if (gsi_indenter_utils_move_to_no_space (&end, 1, FALSE))
-	{
-		line = gtk_text_iter_get_line (&start);
-		gtk_text_buffer_delete (buffer, &start, &end);
-		if (indentation)
-		{
-			gtk_text_buffer_get_iter_at_line (buffer, &start, line);
-			gtk_text_buffer_insert (buffer, &start, indentation, -1);
-		}
-	}
 }
 
 static void

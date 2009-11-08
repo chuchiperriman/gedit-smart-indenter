@@ -7,35 +7,46 @@
 /* Copied from gtksourceview. gtksourceview doesn't free the returned text */
 gchar*
 gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
-					 gint		 line)
+					 gint		 line,
+					 gboolean	 ignore_empty_lines)
 {
         GtkTextIter start;
         GtkTextIter end;
-
+	gchar *indentation = NULL;
+	
         gunichar ch;
 
-        gtk_text_buffer_get_iter_at_line (buffer,
-                                          &start,
-                                          line);
+	while (line >= 0)
+	{
+		if (!ignore_empty_lines || !gsi_indenter_utils_is_empty_line (buffer, line))
+		{
+			gtk_text_buffer_get_iter_at_line (buffer,
+		                                          &start,
+							  line);
+			end = start;
 
-        end = start;
+			ch = gtk_text_iter_get_char (&end);
 
-        ch = gtk_text_iter_get_char (&end);
+			while (g_unichar_isspace (ch) &&
+			       (ch != '\n') &&
+			       (ch != '\r'))
+			{
+				if (!gtk_text_iter_forward_char (&end))
+				        break;
 
-        while (g_unichar_isspace (ch) &&
-               (ch != '\n') &&
-               (ch != '\r'))
-        {
-                if (!gtk_text_iter_forward_char (&end))
-                        break;
+				ch = gtk_text_iter_get_char (&end);
+			}
 
-                ch = gtk_text_iter_get_char (&end);
-        }
+			if (gtk_text_iter_equal (&start, &end))
+				return NULL;
 
-        if (gtk_text_iter_equal (&start, &end))
-                return NULL;
-
-        return gtk_text_iter_get_slice (&start, &end);
+			indentation = gtk_text_iter_get_slice (&start, &end);
+			
+		}
+		line++;
+	}
+	
+	return indentation;
 }
 
 gboolean
@@ -130,6 +141,28 @@ gsi_indenter_utils_is_empty_line (GtkTextBuffer	*buffer,
 	return c == '\n' || c == '\r';
 }
 
+void
+gsi_indenter_utils_replace_indentation (GtkTextBuffer	*buffer,
+				       gint		 line,
+				       gchar		*indentation)
+{
+	GtkTextIter start, end;
 
+	gtk_text_buffer_get_iter_at_line (buffer,
+					  &start,
+					  line);
+	
+	end = start;
+	
+	if (gsi_indenter_utils_move_to_no_space (&end, 1, FALSE))
+	{
+		gtk_text_buffer_delete (buffer, &start, &end);
+		if (indentation)
+		{
+			gtk_text_buffer_get_iter_at_line (buffer, &start, line);
+			gtk_text_buffer_insert (buffer, &start, indentation, -1);
+		}
+	}
+}
 
 

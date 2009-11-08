@@ -9,7 +9,8 @@
 G_BEGIN_DECLS
 
 gchar		*gsi_indenter_utils_get_line_indentation	(GtkTextBuffer	*buffer,
-								 gint		 line);
+								 gint		 line,
+								 gboolean	 ignore_empty_lines);
 
 gboolean	 gsi_indenter_utils_move_to_no_space		(GtkTextIter *iter,
 								 gint direction,
@@ -23,6 +24,11 @@ gchar		*gsi_indenter_utils_get_indent_to_iter		(GtkSourceView *view,
 
 gboolean	 gsi_indenter_utils_is_empty_line		(GtkTextBuffer	*buffer,
 								 gint		 line);
+
+void		 gsi_indenter_utils_replace_indentation		(GtkTextBuffer	*buffer,
+								 gint		 line,
+								 gchar		*indentation);
+
 G_END_DECLS
 
 #endif /* _GSI_INDENTER_UTILS_H */

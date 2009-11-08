@@ -99,6 +99,7 @@ insert_text_cb (GtkTextBuffer *buffer,
 	gchar c = text[len-1];
 	if (c == '\n')
 	{
+		g_debug ("insert");
 		GtkTextView *view = get_view (buffer);
 		GsiIndenter *indenter;
 		GtkSourceLanguage *language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
@@ -111,8 +112,8 @@ insert_text_cb (GtkTextBuffer *buffer,
 		g_assert (indenter != NULL);
 	
 		gsi_indenter_indent_new_line (indenter, view, location);
+		g_debug ("end insert");
 	}
-	
 }
 
 static gboolean
@@ -122,6 +123,7 @@ key_press_event_cb (GtkTextView *view,
 {
 	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_j)
 	{
+		g_debug ("cj");
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 		GtkTextIter start, end;
 
@@ -151,6 +153,7 @@ key_press_event_cb (GtkTextView *view,
 		}
 		
 		g_signal_handlers_unblock_by_func (buffer, insert_text_cb, self);
+		g_debug ("end cj");
 	}
 	return FALSE;
 }
