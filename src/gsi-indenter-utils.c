@@ -237,3 +237,18 @@ gsi_indenter_utils_get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 					 FALSE);
 }
 
+/*New allocated gchar*/
+gchar*
+gsi_indenter_utils_source_view_get_indent_text (GtkSourceView *view)
+{
+	gchar *indent = NULL;
+	if (gtk_source_view_get_insert_spaces_instead_of_tabs (view))
+	{
+		indent = g_strnfill (gtk_source_view_get_tab_width (view), ' ');
+	}
+	else
+	{
+		indent = g_strdup ("\t");
+	}
+	return indent;
+}

@@ -27,8 +27,6 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterCxx,
 //-
 /*
 -	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
--						 indenter_new (".*\\{[^\\}]*", "+1", "	"));
--	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 -						 indenter_new_pair ("\\([^\\)]*$", "+1", NULL, "(", ")"));
 -	plugin->priv->indenters = g_list_append (plugin->priv->indenters,
 -						 indenter_new ("(if|while|for)\\s*\\(.*\\)\\s*$", "+1", "	"));
@@ -39,7 +37,6 @@ gsi_indenter_cxx_indent_regexp (GsiIndenter *indenter,
 				GtkTextBuffer *buffer,
 				GtkTextIter *iter,
 				const gchar *regexp,
-				guint indentation,
 				const gchar *append)
 {
 	GtkTextIter prev_iter = *iter;
@@ -57,7 +54,6 @@ gsi_indenter_cxx_indent_regexp (GsiIndenter *indenter,
 		gchar *indent = gsi_indenter_utils_get_line_indentation (buffer, line -1, TRUE);
 		gchar *final_indent;
 
-		
 		if (append)
 		{
 			if (indent)
@@ -98,32 +94,61 @@ gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	gint line = gtk_text_iter_get_line (iter);
 	gchar *indentation = NULL;
+	gchar *basic_indent = gsi_indenter_utils_source_view_get_indent_text (GTK_SOURCE_VIEW (view));
 	gboolean found = FALSE;
 	
 	found = gsi_indenter_cxx_indent_regexp (indenter,
 						buffer,
 						iter,
 						".*\\/\\*(?!.*\\*/)",
-						0,
 						" * ");
 
-	if (found)
-		return;
-		
-	found = gsi_indenter_cxx_indent_regexp (indenter,
-						buffer,
-						iter,
-						"^\\s*\\*[^/].*$",
-						0,
-						"* ");
-	if (found)
-		return;
-		
-	indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
+	if (!found)
+	{
+		found = gsi_indenter_cxx_indent_regexp (indenter,
+							buffer,
+							iter,
+							"^\\s*\\*[^/].*$",
+							"* ");
+	}
 	
-	gtk_text_buffer_begin_user_action (buffer);
-	gsi_indenter_utils_replace_indentation (buffer, line, indentation);
-	gtk_text_buffer_end_user_action (buffer);
+	if (!found)
+	{
+		found = gsi_indenter_cxx_indent_regexp (indenter,
+							buffer,
+							iter,
+							"^\\s*\\*[^/].*$",
+							"* ");
+	}
+	
+	if (!found)
+	{
+		found = gsi_indenter_cxx_indent_regexp (indenter,
+							buffer,
+							iter,
+							".*\\{(?!.*\\})",
+							basic_indent);
+	}
+	
+	if (!found)
+	{
+		found = gsi_indenter_cxx_indent_regexp (indenter,
+							buffer,
+							iter,
+							"(if|while|for)\\s*\\(.*\\)\\s*$",
+							basic_indent);
+	}		
+	
+	if (!found)
+	{
+		indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
+	
+		gtk_text_buffer_begin_user_action (buffer);
+		gsi_indenter_utils_replace_indentation (buffer, line, indentation);
+		gtk_text_buffer_end_user_action (buffer);
+	}
+	
+	g_free (basic_indent);
 }
 
 static void
@@ -170,6 +195,25 @@ gsi_indenter_relocate_impl (GsiIndenter	*self,
 			gtk_text_buffer_end_user_action (buffer);
 			
 			return TRUE;
+		}
+	}
+	else if (relocator == '{')
+	{
+		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
+		gchar *line_text;
+
+		line_text = gsi_indenter_utils_get_line_text (buffer, iter);
+		if (g_regex_match_simple ("^\\s*\\{",
+					  line_text,
+					  0,
+					  0))
+		{
+			gint line = gtk_text_iter_get_line (iter);
+			gchar *indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
+
+			gtk_text_buffer_begin_user_action (buffer);
+			gsi_indenter_utils_replace_indentation (buffer, line, indentation);
+			gtk_text_buffer_end_user_action (buffer);
 		}
 	}
 	return FALSE;

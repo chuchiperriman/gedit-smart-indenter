@@ -37,6 +37,8 @@ gboolean	 gsi_indenter_utils_find_open_char		(GtkTextIter *iter,
 gchar		*gsi_indenter_utils_get_line_text		(GtkTextBuffer *buffer,
 								 GtkTextIter *iter);
 
+gchar		*gsi_indenter_utils_source_view_get_indent_text (GtkSourceView *view);
+
 G_END_DECLS
 
 #endif /* _GSI_INDENTER_UTILS_H */
