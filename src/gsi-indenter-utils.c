@@ -109,7 +109,7 @@ gsi_indenter_utils_get_indent_to_iter (GtkSourceView *view, GtkTextIter *iter)
 		gtk_text_iter_forward_char (&start);
 	}while (gtk_text_iter_compare (&start, iter) != 0);
 	
-	/*+1 Is the pair,by example )*/
+	/*+1 Is the pair,by example (*/
 	total_size++;
 	
 	if (gtk_source_view_get_insert_spaces_instead_of_tabs (view))
