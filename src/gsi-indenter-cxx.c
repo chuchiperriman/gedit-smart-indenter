@@ -121,8 +121,8 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 	gtk_text_iter_backward_line (&prev_iter);
 	
 	line_text = gsi_indenter_utils_get_line_text (buffer, &prev_iter);
-	
-	if (g_regex_match_simple ("\\)\\s*$",
+			
+	if (g_regex_match_simple ("\\)[\\s|;]*$",
 				  line_text,
 				  0,
 				  0))
@@ -141,7 +141,7 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 			
 			return TRUE;
 		}
-	}
+	}	
 	return FALSE;
 }
 
