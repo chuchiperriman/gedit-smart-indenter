@@ -3,13 +3,6 @@
 #include "gsi-indenter.h"
 
 static void
-gsi_indenter_indent_new_line_default (GsiIndenter	*self,
-				      GtkTextView	*view,
-				      GtkTextIter	*iter)
-{
-}
-
-static void
 gsi_indenter_indent_line_default (GsiIndenter	*self,
 				  GtkTextView	*view,
 				  GtkTextIter	*iter)
@@ -22,12 +15,6 @@ gsi_indenter_indent_region_default (GsiIndenter	*self,
 				    GtkTextIter	*start,
 				    GtkTextIter	*end)
 {
-}
-
-static gboolean
-gsi_indenter_has_relocators_default (GsiIndenter *self)
-{
-	return FALSE;
 }
 
 static const gchar*
@@ -51,10 +38,8 @@ gsi_indenter_init (GsiIndenterInterface *iface)
 {
 	static gboolean is_initialized = FALSE;
 	
-	iface->indent_new_line = gsi_indenter_indent_new_line_default;
 	iface->indent_line = gsi_indenter_indent_line_default;
 	iface->indent_region = gsi_indenter_indent_region_default;
-	iface->has_relocators = gsi_indenter_has_relocators_default;
 	iface->get_relocators = gsi_indenter_get_relocators_default;
 	iface->relocate = gsi_indenter_relocate_default;
 
@@ -85,18 +70,6 @@ gsi_indenter_get_type (void)
 }
 
 void
-gsi_indenter_indent_new_line (GsiIndenter	*self,
-			      GtkTextView	*view,
-			      GtkTextIter	*iter)
-{
-  g_return_if_fail (GSI_IS_INDENTER (self));
-  g_return_if_fail (GTK_IS_TEXT_VIEW (view));
-  g_return_if_fail (iter != NULL);
-
-  GSI_INDENTER_GET_INTERFACE (self)->indent_new_line (self, view, iter);
-}
-
-void
 gsi_indenter_indent_line (GsiIndenter	*self,
 			  GtkTextView	*view,
 			  GtkTextIter	*iter)
@@ -120,13 +93,6 @@ gsi_indenter_indent_region (GsiIndenter	*self,
 	g_return_if_fail (end != NULL);
 	
 	GSI_INDENTER_GET_INTERFACE (self)->indent_region (self, view, start, end);
-}
-
-gboolean
-gsi_indenter_has_relocators (GsiIndenter *self)
-{
-	g_return_val_if_fail (GSI_IS_INDENTER (self), FALSE);
-	return GSI_INDENTER_GET_INTERFACE (self)->has_relocators (self);
 }
 
 const gchar*

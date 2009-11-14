@@ -202,14 +202,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
-	
-}
-
-static void
-gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
-				   GtkTextView *view,
-				   GtkTextIter *iter)
-{
 	/*TODO Previous indentation by the moment*/
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	gint line = gtk_text_iter_get_line (iter);
@@ -248,7 +240,7 @@ gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
 		gtk_text_buffer_end_user_action (buffer);
 	}
 }
-	
+
 static void
 gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 				 GtkTextView *view,
@@ -256,12 +248,6 @@ gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 				 GtkTextIter *end)
 {
 
-}
-
-static gboolean
-gsi_indenter_has_relocators_impl (GsiIndenter	*self)
-{
-	return TRUE;
 }
 
 static const gchar*
@@ -324,10 +310,8 @@ gsi_indenter_iface_init (gpointer g_iface,
         GsiIndenterInterface *iface = (GsiIndenterInterface *)g_iface;
 
         /* Interface data getter implementations */
-        iface->indent_new_line = gsi_indenter_indent_new_line_impl;
         iface->indent_line = gsi_indenter_indent_line_impl;
         iface->indent_region = gsi_indenter_indent_region_impl;
-	iface->has_relocators = gsi_indenter_has_relocators_impl;
 	iface->get_relocators = gsi_indenter_get_relocators_impl;
 	iface->relocate = gsi_indenter_relocate_impl;
 }

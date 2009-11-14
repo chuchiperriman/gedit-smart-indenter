@@ -123,12 +123,9 @@ insert_text_cb (GtkTextBuffer *buffer,
 	c = text[len-1];
 	if (c == '\n')
 	{
-		gsi_indenter_indent_new_line (indenter, view, location);
+		gsi_indenter_indent_line (indenter, view, location);
 		return;
 	}
-	
-	if (!gsi_indenter_has_relocators (indenter))
-		return;
 	
 	relocators = gsi_indenter_get_relocators (indenter, view);
 	

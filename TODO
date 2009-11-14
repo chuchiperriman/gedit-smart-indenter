@@ -1,7 +1,8 @@
 Milestone 2
 -----------
 
-[ ] Do we must to use special keys for indentation or only TAB?
+[X] Do we must to use special keys for indentation or only TAB?
+	- Special keys
 [X] Add indent_line to the indenter interface
 [X] Add indent_region to the indenter interface
 Plugin:

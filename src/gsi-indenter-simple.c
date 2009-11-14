@@ -49,14 +49,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 }
 
 static void
-gsi_indenter_indent_new_line_impl (GsiIndenter *indenter,
-				   GtkTextView *view,
-				   GtkTextIter *iter)
-{
-	gsi_indenter_indent_line_impl (indenter, view, iter);
-}
-
-static void
 gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 				 GtkTextView *view,
 				 GtkTextIter *start,
@@ -87,7 +79,6 @@ gsi_indenter_iface_init (gpointer g_iface,
         GsiIndenterInterface *iface = (GsiIndenterInterface *)g_iface;
 
         /* Interface data getter implementations */
-        iface->indent_new_line = gsi_indenter_indent_new_line_impl;
         iface->indent_line = gsi_indenter_indent_line_impl;
         iface->indent_region = gsi_indenter_indent_region_impl;
 }

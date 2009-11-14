@@ -29,10 +29,6 @@ struct _GsiIndenterInterface
 {
 	GTypeInterface parent_iface;
 
-	void (*indent_new_line) (GsiIndenter	*self,
-				 GtkTextView	*view,
-				 GtkTextIter	*iter);
-
 	void (*indent_line) (GsiIndenter	*self,
 			     GtkTextView	*view,
 			     GtkTextIter	*iter);
@@ -41,8 +37,6 @@ struct _GsiIndenterInterface
 			       GtkTextView	*view,
 			       GtkTextIter	*start,
 			       GtkTextIter	*end);
-	
-	gboolean (*has_relocators) (GsiIndenter	*self);
 	
 	const gchar* (*get_relocators) (GsiIndenter	*self,
 					GtkTextView	*view);
@@ -55,10 +49,6 @@ struct _GsiIndenterInterface
 
 GType gsi_indenter_get_type (void);
 
-void 		 gsi_indenter_indent_new_line (GsiIndenter	*self,
-					       GtkTextView	*view,
-					       GtkTextIter	*iter);
-
 void 		 gsi_indenter_indent_line (GsiIndenter		*self,
 					   GtkTextView		*view,
 					   GtkTextIter		*iter);
@@ -67,8 +57,6 @@ void 		 gsi_indenter_indent_region (GsiIndenter	*self,
 					     GtkTextView	*view,
 					     GtkTextIter	*start,
 					     GtkTextIter	*end);
-
-gboolean	 gsi_indenter_has_relocators (GsiIndenter	*self);
 
 const gchar	*gsi_indenter_get_relocators (GsiIndenter	*self,
 					      GtkTextView	*view);
