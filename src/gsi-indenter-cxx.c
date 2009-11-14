@@ -6,6 +6,7 @@
 #define INDENTER_CXX_PRIVATE(o) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTER_CXX, GsiIndenterCxxPrivate))
 
+#define RELOCATORS "{}"
 
 typedef gboolean (*apply_indent) (GsiIndenterCxx *indenter,
 				  GtkTextView *view,
@@ -42,6 +43,11 @@ static gboolean apply_prev_indent (GsiIndenterCxx *indenter,
 				   GtkTextView *view,
 				   GtkTextIter *iter,
 				   const gchar *append);
+
+static gboolean gsi_indenter_relocate_impl (GsiIndenter	*self,
+					    GtkTextView	*view,
+					    GtkTextIter	*iter,
+					    gchar	 relocator);
 
 static RegexpDef regexp_list [] = {
 	{".*\\/\\*(?!.*\\*/)", INDENTATION_APPEND, " * ", apply_prev_indent},
@@ -209,7 +215,36 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	gboolean found = FALSE;
 	RegexpDef rd;
 	gint i;
+	GtkTextIter rel_iter = *iter;
 
+	gtk_text_iter_set_line_offset (&rel_iter, 0);
+	
+	/*Find relocations*/
+	if (gsi_indenter_utils_move_to_no_space (&rel_iter, 1, FALSE))
+	{
+		gchar c = gtk_text_iter_get_char (&rel_iter);
+		const gchar *relocators = RELOCATORS;
+		while (*relocators != '\0')
+		{
+			if (c == *relocators)
+			{
+				g_debug ("Relocating indent_line");
+				if (gsi_indenter_relocate_impl (indenter,
+								view,
+								&rel_iter,
+								c))
+				{
+					return;
+				}
+				else
+				{
+					break;
+				}
+			}
+			relocators++;
+		}
+	}
+	/*Apply regexps*/
 	for (i = 0; i< (sizeof (regexp_list) / sizeof (RegexpDef)); i++)
 	{
 		rd = regexp_list [i];
@@ -257,7 +292,7 @@ static const gchar*
 gsi_indenter_get_relocators_impl (GsiIndenter	*self,
 				  GtkTextView	*view)
 {
-	return "{}";
+	return RELOCATORS;
 }
 
 static gboolean
@@ -301,6 +336,7 @@ gsi_indenter_relocate_impl (GsiIndenter	*self,
 			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_utils_replace_indentation (buffer, line, indentation);
 			gtk_text_buffer_end_user_action (buffer);
+			return TRUE;
 		}
 	}
 	return FALSE;

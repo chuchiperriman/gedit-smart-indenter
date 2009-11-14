@@ -276,4 +276,3 @@ gsi_indenter_utils_indent_region_by_line (GsiIndenter *indenter,
 	}
 	gtk_text_buffer_end_user_action (buffer);
 }
-
