@@ -109,10 +109,6 @@ insert_text_cb (GtkTextBuffer *buffer,
 	gchar c;
 	gboolean found = FALSE;
 
-	/*TODO prevent paste by the moment*/
-	if (len >2)
-		return;
-
 	view = get_view (buffer);
 		
 	language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
@@ -127,9 +123,7 @@ insert_text_cb (GtkTextBuffer *buffer,
 	c = text[len-1];
 	if (c == '\n')
 	{
-		g_debug ("insert");
 		gsi_indenter_indent_new_line (indenter, view, location);
-		g_debug ("end insert");
 		return;
 	}
 	
@@ -165,7 +159,6 @@ key_press_event_cb (GtkTextView *view,
 {
 	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_j)
 	{
-		g_debug ("cj");
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 		GtkTextIter start, end;
 
@@ -195,9 +188,27 @@ key_press_event_cb (GtkTextView *view,
 		}
 		
 		g_signal_handlers_unblock_by_func (buffer, insert_text_cb, self);
-		g_debug ("end cj");
 	}
 	return FALSE;
+}
+
+static void
+paste_clipboard_cb (GtkTextView *view,
+		    GeditsmartindenterPlugin *self)
+{
+	g_signal_handlers_block_by_func (gtk_text_view_get_buffer (view),
+					 insert_text_cb,
+					 self);
+}
+
+static void
+paste_done_cb (GtkTextBuffer *buffer,
+	       GtkClipboard *clip,
+	       GeditsmartindenterPlugin *self)
+{
+	g_signal_handlers_unblock_by_func (buffer,
+					   insert_text_cb,
+					   self);
 }
 
 static void
@@ -214,6 +225,16 @@ document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 				"key-press-event",
 				G_CALLBACK (key_press_event_cb),
 				self);
+	/*Block the insert-text signal when the user paste text*/
+	g_signal_connect (view,
+			  "paste-clipboard",
+			  G_CALLBACK (paste_clipboard_cb),
+			  self);
+	/*Unblock the insert-text signal when the paste ends*/
+	g_signal_connect (buffer,
+			  "paste-done",
+			  G_CALLBACK (paste_done_cb),
+			  self);
 	g_object_set_data (G_OBJECT (view), ENABLED_KEY, buffer);
 }
 
