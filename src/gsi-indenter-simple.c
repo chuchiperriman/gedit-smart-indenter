@@ -54,22 +54,10 @@ gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 				 GtkTextIter *start,
 				 GtkTextIter *end)
 {
-	gint start_line = gtk_text_iter_get_line (start);
-	gint end_line = gtk_text_iter_get_line (end);
-	GtkTextIter iter = *start;
-	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
-	
-	/*We indent based on the first selected line*/
-	start_line++;
-	gtk_text_buffer_begin_user_action (buffer);
-	while (start_line <= end_line)
-	{
-		gtk_text_buffer_get_iter_at_line (buffer, &iter, start_line);
-		gsi_indenter_indent_line_real (indenter, view, &iter);
-		start_line++;
-		
-	}
-	gtk_text_buffer_end_user_action (buffer);
+	gsi_indenter_utils_indent_region_by_line (indenter,
+						  view,
+						  start,
+						  end);
 }
 
 static void

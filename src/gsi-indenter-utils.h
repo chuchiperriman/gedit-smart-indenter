@@ -6,6 +6,8 @@
 #include <gtk/gtk.h>
 #include <gtksourceview/gtksourceview.h>
 
+#include "gsi-indenter.h"
+
 G_BEGIN_DECLS
 
 gchar		*gsi_indenter_utils_get_line_indentation	(GtkTextBuffer	*buffer,
@@ -38,6 +40,11 @@ gchar		*gsi_indenter_utils_get_line_text		(GtkTextBuffer *buffer,
 								 GtkTextIter *iter);
 
 gchar		*gsi_indenter_utils_source_view_get_indent_text (GtkSourceView *view);
+
+void		 gsi_indenter_utils_indent_region_by_line	(GsiIndenter *indenter,
+								 GtkTextView *view,
+								 GtkTextIter *start,
+								 GtkTextIter *end);
 
 G_END_DECLS
 

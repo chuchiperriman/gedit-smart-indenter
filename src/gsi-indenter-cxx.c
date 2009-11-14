@@ -39,9 +39,9 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterCxx,
                                                 gsi_indenter_iface_init))
 
 static gboolean apply_prev_indent (GsiIndenterCxx *indenter,
-						    GtkTextView *view,
-						    GtkTextIter *iter,
-						    const gchar *append);
+				   GtkTextView *view,
+				   GtkTextIter *iter,
+				   const gchar *append);
 
 static RegexpDef regexp_list [] = {
 	{".*\\/\\*(?!.*\\*/)", INDENTATION_APPEND, " * ", apply_prev_indent},
@@ -247,7 +247,10 @@ gsi_indenter_indent_region_impl (GsiIndenter *indenter,
 				 GtkTextIter *start,
 				 GtkTextIter *end)
 {
-
+	gsi_indenter_utils_indent_region_by_line (indenter,
+						  view,
+						  start,
+						  end);
 }
 
 static const gchar*
