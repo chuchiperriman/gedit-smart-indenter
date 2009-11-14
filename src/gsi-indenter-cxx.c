@@ -196,9 +196,8 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_utils_replace_indentation (buffer, gtk_text_iter_get_line (iter), indent);
 			gtk_text_buffer_end_user_action (buffer);
-			
-			return TRUE;
 		}
+		return TRUE;
 	}	
 	return FALSE;
 }
@@ -228,7 +227,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 		{
 			if (c == *relocators)
 			{
-				g_debug ("Relocating indent_line");
 				if (gsi_indenter_relocate_impl (indenter,
 								view,
 								&rel_iter,
@@ -296,7 +294,7 @@ gsi_indenter_get_relocators_impl (GsiIndenter	*self,
 }
 
 static gboolean
-gsi_indenter_relocate_impl (GsiIndenter	*self,
+gsi_indenter_relocate_impl (GsiIndenter	*indenter,
 			    GtkTextView	*view,
 			    GtkTextIter	*iter,
 			    gchar	 relocator)
@@ -330,12 +328,16 @@ gsi_indenter_relocate_impl (GsiIndenter	*self,
 					  0,
 					  0))
 		{
-			gint line = gtk_text_iter_get_line (iter);
-			gchar *indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
-
-			gtk_text_buffer_begin_user_action (buffer);
-			gsi_indenter_utils_replace_indentation (buffer, line, indentation);
-			gtk_text_buffer_end_user_action (buffer);
+			GtkTextIter close_iter = *iter;
+			if (!gsi_indenter_cxx_indent_close_func (indenter, GTK_SOURCE_VIEW (view), &close_iter))
+			{
+				gint line = gtk_text_iter_get_line (iter);
+				gchar *indentation = gsi_indenter_utils_get_line_indentation (buffer, line - 1, TRUE);
+				
+				gtk_text_buffer_begin_user_action (buffer);
+				gsi_indenter_utils_replace_indentation (buffer, line, indentation);
+				gtk_text_buffer_end_user_action (buffer);
+			}
 			return TRUE;
 		}
 	}
