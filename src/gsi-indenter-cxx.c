@@ -56,6 +56,127 @@ static RegexpDef regexp_list [] = {
 	{"(if|while|for)\\s*\\(.*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent}
 };
 
+static void
+move_to_no_simple_comment (GtkTextIter *iter)
+{
+	gchar c;
+	GtkTextIter copy = *iter;
+	gtk_text_iter_set_line_offset (iter, 0);
+	c = gtk_text_iter_get_char (&copy);
+	do
+	{
+		if (c == '/')
+		{
+			if (!gtk_text_iter_forward_char (&copy))
+				break;
+			
+			c = gtk_text_iter_get_char (&copy);
+			if (c == '/')
+			{
+				gtk_text_iter_backward_char (&copy);
+				gtk_text_iter_backward_char (&copy);
+				break;
+			}
+		}
+		if (!gtk_text_iter_forward_char (&copy))
+			break;
+		c = gtk_text_iter_get_char (&copy);
+	} while (c != '\n');
+
+	*iter = copy;
+}
+
+static gchar*
+get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
+{
+	GtkTextIter start, end;
+	gchar c;
+		
+	start = *iter;
+	gtk_text_iter_set_line_offset (&start, 0);
+	c = gtk_text_iter_get_char (&start);
+	if (c == '\r' || c == '\n')
+		return "";
+
+	end = start;
+
+	move_to_no_simple_comment (&end);
+	
+	return gtk_text_buffer_get_text (buffer,
+					 &start,
+					 &end,
+					 FALSE);
+}
+
+static gboolean
+find_open_char (GtkTextIter *iter,
+		gchar open,
+		gchar close,
+		gboolean skip_first)
+{
+	GtkTextIter copy;
+	gunichar c;
+	gboolean moved = FALSE;
+	gint counter = 0;
+	gboolean quotes = FALSE;
+	gboolean dquotes = FALSE;
+	
+	g_return_val_if_fail (iter != NULL, FALSE);
+	
+	copy = *iter;
+	
+	/*
+	 * FIXME: We have to take care of number of lines to go back
+	 */
+	c = gtk_text_iter_get_char (&copy);
+	do
+	{
+		if (!quotes && c == '"')
+		{
+			dquotes = !dquotes;
+		}
+		
+		if (!dquotes && c == '\'')
+		{
+			quotes = !quotes;
+		}
+		
+		if (quotes || dquotes)
+		{
+			counter++;
+			continue;
+		}
+		
+		/*
+		 * This algorithm has to work even if we have if (xxx, xx(),
+		 */
+		if (c == close)
+		{
+			if (skip_first)
+				skip_first = FALSE;
+			else			
+				counter--;
+		}
+		if (c == open)
+		{
+			if (counter != 0)
+			{
+				counter++;
+			}
+			else
+			{
+				*iter = copy;
+				moved = TRUE;
+				break;
+			}
+		}
+	}
+	while (gtk_text_iter_backward_char (&copy) &&
+	       (c = gtk_text_iter_get_char (&copy)));
+	
+	return moved;
+}
+
 static gboolean
 apply_prev_indent (GsiIndenterCxx *indenter,
 		   GtkTextView *view,
@@ -99,8 +220,9 @@ gsi_indenter_cxx_indent_regexp (GsiIndenter *indenter,
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	
 	gtk_text_iter_backward_line (&prev_iter);
-	
-	line_text = gsi_indenter_utils_get_line_text (buffer, &prev_iter);
+
+	line_text = get_line_text (buffer, &prev_iter);
+
 	if (g_regex_match_simple (rd->match,
 				  line_text,
 				  0,
@@ -140,17 +262,17 @@ gsi_indenter_cxx_indent_open_func (GsiIndenter *indenter,
 	
 	gtk_text_iter_backward_line (&prev_iter);
 	
-	line_text = gsi_indenter_utils_get_line_text (buffer, &prev_iter);
+	line_text = get_line_text (buffer, &prev_iter);
 	
 	if (g_regex_match_simple ("\\([^\\)]*$",
 				  line_text,
 				  0,
 				  0))
 	{
-		if (gsi_indenter_utils_find_open_char (&current,
-						       '(',
-						       ')',
-						       FALSE))
+		if (find_open_char (&current,
+				    '(',
+				    ')',
+				    FALSE))
 		{
 			indent = gsi_indenter_utils_get_indent_to_iter (view,
 									&current);
@@ -178,17 +300,17 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 	
 	gtk_text_iter_backward_line (&prev_iter);
 	
-	line_text = gsi_indenter_utils_get_line_text (buffer, &prev_iter);
-			
+	line_text = get_line_text (buffer, &prev_iter);
+	
 	if (g_regex_match_simple ("\\)[\\s|;]*$",
 				  line_text,
 				  0,
 				  0))
 	{
-		if (gsi_indenter_utils_find_open_char (&current,
-						       '(',
-						       ')',
-						       TRUE))
+		if (find_open_char (&current,
+				    '(',
+				    ')',
+				    TRUE))
 		{
 			gint line = gtk_text_iter_get_line (&current);
 			indent = gsi_indenter_utils_get_line_indentation (buffer, line, TRUE);
@@ -214,14 +336,14 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	gboolean found = FALSE;
 	RegexpDef rd;
 	gint i;
-	GtkTextIter rel_iter = *iter;
+	GtkTextIter copy = *iter;
 
-	gtk_text_iter_set_line_offset (&rel_iter, 0);
+	gtk_text_iter_set_line_offset (&copy, 0);
 	
 	/*Find relocations*/
-	if (gsi_indenter_utils_move_to_no_space (&rel_iter, 1, FALSE))
+	if (gsi_indenter_utils_move_to_no_space (&copy, 1, FALSE))
 	{
-		gchar c = gtk_text_iter_get_char (&rel_iter);
+		gchar c = gtk_text_iter_get_char (&copy);
 		const gchar *relocators = RELOCATORS;
 		while (*relocators != '\0')
 		{
@@ -229,7 +351,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			{
 				if (gsi_indenter_relocate_impl (indenter,
 								view,
-								&rel_iter,
+								&copy,
 								c))
 				{
 					return;
@@ -242,13 +364,16 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			relocators++;
 		}
 	}
+	
+	copy = *iter;
+	
 	/*Apply regexps*/
 	for (i = 0; i< (sizeof (regexp_list) / sizeof (RegexpDef)); i++)
 	{
 		rd = regexp_list [i];
 		found = gsi_indenter_cxx_indent_regexp (indenter,
 							view,
-							iter,
+							&copy,
 							&rd);
 		if (found)
 			break;
@@ -256,12 +381,12 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 
 	if (!found)
 	{
-		found = gsi_indenter_cxx_indent_open_func (indenter, GTK_SOURCE_VIEW (view), iter);
+		found = gsi_indenter_cxx_indent_open_func (indenter, GTK_SOURCE_VIEW (view), &copy);
 	}
 	
 	if (!found)
 	{
-		found = gsi_indenter_cxx_indent_close_func (indenter, GTK_SOURCE_VIEW (view), iter);
+		found = gsi_indenter_cxx_indent_close_func (indenter, GTK_SOURCE_VIEW (view), &copy);
 	}
 	
 	if (!found)
@@ -302,7 +427,7 @@ gsi_indenter_relocate_impl (GsiIndenter	*indenter,
 	if (relocator == '}')
 	{
 		GtkTextIter open_iter = *iter;
-		if (gsi_indenter_utils_find_open_char (&open_iter, '{', '}', TRUE))
+		if (find_open_char (&open_iter, '{', '}', TRUE))
 		{
 			gint open_line = gtk_text_iter_get_line (&open_iter);
 			gint line = gtk_text_iter_get_line (iter);
@@ -322,7 +447,7 @@ gsi_indenter_relocate_impl (GsiIndenter	*indenter,
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 		gchar *line_text;
 
-		line_text = gsi_indenter_utils_get_line_text (buffer, iter);
+		line_text = get_line_text (buffer, iter);
 		if (g_regex_match_simple ("^\\s*\\{",
 					  line_text,
 					  0,
