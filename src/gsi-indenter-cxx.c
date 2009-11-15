@@ -53,7 +53,8 @@ static RegexpDef regexp_list [] = {
 	{".*\\/\\*(?!.*\\*/)", INDENTATION_APPEND, " * ", apply_prev_indent},
 	{"^\\s*\\*[^/].*$", INDENTATION_APPEND, "* ", apply_prev_indent},
 	{".*\\{(?!.*\\})", INDENTATION_BASIC, NULL, apply_prev_indent},
-	{"(if|while|for)\\s*\\(.*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent}
+	{"(if|while|for)\\s*\\(.*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent},
+	{"^\\s*else\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent}
 };
 
 static void
