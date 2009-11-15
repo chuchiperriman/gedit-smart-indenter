@@ -88,10 +88,47 @@ move_to_no_simple_comment (GtkTextIter *iter)
 }
 
 static gchar*
+clear_quotes (gchar *text)
+{
+	gchar *temp_text;
+	gchar *new_text;
+	GRegex *esc_quotes_regex = g_regex_new ("(\\\\\"|\\\\')", 0, 0, NULL);
+	GRegex *quotes_regex = g_regex_new ("(\"[^\"]*\")|(\\'[^\\']*\\')", 0, 0, NULL);
+
+	/*TODO Remove text between quotes "sss" and 'x'*/
+	temp_text = g_regex_replace_literal (esc_quotes_regex,
+					     text,
+					     -1,
+					     0,
+					     "",
+					     0,
+					     NULL);
+	
+	new_text = g_regex_replace_literal (quotes_regex,
+					    temp_text,
+					    -1,
+					    0,
+					    "",
+					    0,
+					    NULL);
+	
+	g_free (temp_text);
+	
+	g_debug ("new [%s]", new_text);
+
+	g_regex_unref (esc_quotes_regex);
+	g_regex_unref (quotes_regex);
+	
+	g_free (new_text);
+	return NULL;
+}
+
+static gchar*
 get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 {
 	GtkTextIter start, end;
 	gchar c;
+	gchar *text = NULL;
 		
 	start = *iter;
 	gtk_text_iter_set_line_offset (&start, 0);
@@ -101,12 +138,18 @@ get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 
 	end = start;
 
+	/*Ignore the "//comment" part: if (TRUE) //comment */
 	move_to_no_simple_comment (&end);
 	
-	return gtk_text_buffer_get_text (buffer,
+	text = gtk_text_buffer_get_text (buffer,
 					 &start,
 					 &end,
 					 FALSE);
+	/*Remove text inside quotes*/
+	clear_quotes (text);
+	
+	return text;
+	
 }
 
 static gboolean
