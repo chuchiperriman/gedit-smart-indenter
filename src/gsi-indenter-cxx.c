@@ -44,13 +44,18 @@ static gboolean apply_prev_indent (GsiIndenterCxx *indenter,
 				   GtkTextIter *iter,
 				   const gchar *append);
 
+static gboolean find_open_char (GtkTextIter *iter,
+				gchar open,
+				gchar close,
+				gboolean skip_first);
+
 static gboolean gsi_indenter_relocate_impl (GsiIndenter	*self,
 					    GtkTextView	*view,
 					    GtkTextIter	*iter,
 					    gchar	 relocator);
 
 static RegexpDef regexp_list [] = {
-	{".*\\/\\*(?!.*\\*/)", INDENTATION_APPEND, " * ", apply_prev_indent},
+	{".*\\/\\*(?!.*\\*\\/)", INDENTATION_APPEND, " * ", apply_prev_indent},
 	{"^\\s*\\*[^/].*$", INDENTATION_APPEND, "* ", apply_prev_indent},
 	{".*\\{(?!.*\\})", INDENTATION_BASIC, NULL, apply_prev_indent},
 	{"(if|while|for)\\s*\\(.*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent},
@@ -58,69 +63,101 @@ static RegexpDef regexp_list [] = {
 };
 
 static void
+clean_line_to_regexp (gchar *text)
+{
+	guint i;
+	gboolean quotes = FALSE;
+	gboolean dquotes = FALSE;
+	
+	if (text == NULL) 
+		return;
+	
+	for (i = 0; text[i]; i++)
+	{
+		if (text[i] == '\\' && text[i+1])
+		{
+			if (text[i+1] == '\\')
+			{
+				text[i] = ' ';
+				text[i + 1] = ' ';
+				continue;
+			}
+			else if (text[i+1] == '\'' || text[i+1] == '"')
+			{
+				text[i] = ' ';
+				text[i + 1] = ' ';
+				continue;
+			}
+		}
+		
+		if (!quotes && text[i] == '"')
+		{
+			dquotes = !dquotes;
+			continue;
+		}
+		
+		if (!dquotes && text[i] == '\'')
+		{
+			quotes = !quotes;
+			continue;
+		}
+		
+		if (quotes || dquotes)
+		{
+			text[i] = ' ';
+		}
+	}
+}
+
+static void
 move_to_no_simple_comment (GtkTextIter *iter)
 {
-	gchar c;
+	gunichar c;
+	gunichar cprev = '\0';
 	GtkTextIter copy = *iter;
-	gtk_text_iter_set_line_offset (iter, 0);
+	gboolean in_multi = FALSE;
+	
+	gtk_text_iter_set_line_offset (&copy, 0);
+	
 	c = gtk_text_iter_get_char (&copy);
 	do
 	{
 		if (c == '/')
 		{
-			if (!gtk_text_iter_forward_char (&copy))
-				break;
-			
-			c = gtk_text_iter_get_char (&copy);
-			if (c == '/')
+			if (in_multi && cprev == '*')
 			{
-				gtk_text_iter_backward_char (&copy);
-				gtk_text_iter_backward_char (&copy);
-				break;
+				in_multi = FALSE;
+			}
+			else
+			{
+				if (!in_multi)
+				{
+					if (!gtk_text_iter_forward_char (&copy))
+						break;
+					
+					cprev = c;
+					c = gtk_text_iter_get_char (&copy);
+					
+					if (c == '/')
+					{
+						gtk_text_iter_backward_char (&copy);
+						gtk_text_iter_backward_char (&copy);
+						break;
+					}
+					if (c == '*')
+					{
+						in_multi = TRUE;
+					}
+				}
 			}
 		}
 		if (!gtk_text_iter_forward_char (&copy))
 			break;
+		cprev = c;
 		c = gtk_text_iter_get_char (&copy);
-	} while (c != '\n');
-
+	} while (c != '\n' && c != '\r');
+	
 	*iter = copy;
-}
-
-static gchar*
-clear_quotes (gchar *text)
-{
-	gchar *temp_text;
-	gchar *new_text;
-	GRegex *esc_quotes_regex = g_regex_new ("(\\\\\"|\\\\')", 0, 0, NULL);
-	GRegex *quotes_regex = g_regex_new ("(\"[^\"]*\")|(\\'[^\\']*\\')", 0, 0, NULL);
-
-	/*TODO Remove text between quotes "sss" and 'x'*/
-	temp_text = g_regex_replace_literal (esc_quotes_regex,
-					     text,
-					     -1,
-					     0,
-					     "",
-					     0,
-					     NULL);
-	
-	new_text = g_regex_replace_literal (quotes_regex,
-					    temp_text,
-					    -1,
-					    0,
-					    "",
-					    0,
-					    NULL);
-	
-	g_free (temp_text);
-	
-	g_debug ("new [%s]", new_text);
-
-	g_regex_unref (esc_quotes_regex);
-	g_regex_unref (quotes_regex);
-	
-	g_free (new_text);
-	return NULL;
 }
 
 static gchar*
@@ -129,7 +166,7 @@ get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 	GtkTextIter start, end;
 	gchar c;
 	gchar *text = NULL;
-		
+	
 	start = *iter;
 	gtk_text_iter_set_line_offset (&start, 0);
 	c = gtk_text_iter_get_char (&start);
@@ -139,14 +176,15 @@ get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 	end = start;
 
 	/*Ignore the "//comment" part: if (TRUE) //comment */
-	move_to_no_simple_comment (&end);
 	
+	move_to_no_simple_comment (&end);
+		
 	text = gtk_text_buffer_get_text (buffer,
 					 &start,
 					 &end,
 					 FALSE);
-	/*Remove text inside quotes*/
-	clear_quotes (text);
+
+	clean_line_to_regexp (text);
 	
 	return text;
 	
@@ -187,7 +225,6 @@ find_open_char (GtkTextIter *iter,
 		
 		if (quotes || dquotes)
 		{
-			counter++;
 			continue;
 		}
 		
@@ -381,7 +418,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	RegexpDef rd;
 	gint i;
 	GtkTextIter copy = *iter;
-
+	
 	gtk_text_iter_set_line_offset (&copy, 0);
 	
 	/*Find relocations*/
