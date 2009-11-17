@@ -58,7 +58,7 @@ static RegexpDef regexp_list [] = {
 	{".*\\/\\*(?!.*\\*\\/)", INDENTATION_APPEND, " * ", apply_prev_indent},
 	{"^\\s*\\*[^/].*$", INDENTATION_APPEND, "* ", apply_prev_indent},
 	{".*\\{(?!.*\\})", INDENTATION_BASIC, NULL, apply_prev_indent},
-	{"(if|while|for)\\s*\\(.*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent},
+	{"(if|while|for)\\s*\\([^\\(]*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent},
 	{"^\\s*else\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent}
 };
 
@@ -344,8 +344,8 @@ gsi_indenter_cxx_indent_open_func (GsiIndenter *indenter,
 	gtk_text_iter_backward_line (&prev_iter);
 	
 	line_text = get_line_text (buffer, &prev_iter);
-	
-	if (g_regex_match_simple ("\\([^\\)]*$",
+
+	if (g_regex_match_simple ("\\(.*(?!\\(.*\\))[^\\)]*",
 				  line_text,
 				  0,
 				  0))
