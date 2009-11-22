@@ -63,6 +63,15 @@ static RegexpDef regexp_list [] = {
 };
 
 static void
+print_iter (GtkTextIter *iter)
+{
+	g_debug ("iter:\nline: %i\noffset: %i\nchar: %c",
+		 gtk_text_iter_get_line (iter),
+		 gtk_text_iter_get_line_offset (iter),
+		 gtk_text_iter_get_char (iter));
+}
+
+static void
 clean_line_to_regexp (gchar *text)
 {
 	guint i;
@@ -200,8 +209,6 @@ find_open_char (GtkTextIter *iter,
 	gunichar c;
 	gboolean moved = FALSE;
 	gint counter = 0;
-	gboolean quotes = FALSE;
-	gboolean dquotes = FALSE;
 	
 	g_return_val_if_fail (iter != NULL, FALSE);
 	
@@ -213,21 +220,6 @@ find_open_char (GtkTextIter *iter,
 	c = gtk_text_iter_get_char (&copy);
 	do
 	{
-		if (!quotes && c == '"')
-		{
-			dquotes = !dquotes;
-		}
-		
-		if (!dquotes && c == '\'')
-		{
-			quotes = !quotes;
-		}
-		
-		if (quotes || dquotes)
-		{
-			continue;
-		}
-		
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */
@@ -345,16 +337,24 @@ gsi_indenter_cxx_indent_open_func (GsiIndenter *indenter,
 	
 	line_text = get_line_text (buffer, &prev_iter);
 
-	if (g_regex_match_simple ("\\(.*(?!\\(.*\\))[^\\)]*",
+	g_debug ("open l [%s]",line_text);
+	
+	if (g_regex_match_simple ("\\([^\\)]*$",
 				  line_text,
 				  0,
 				  0))
 	{
+		/*If we are in ), we search from the previous char*/
+		gtk_text_iter_backward_char (&current);
+		
+		print_iter (&current);
+		
 		if (find_open_char (&current,
 				    '(',
 				    ')',
 				    FALSE))
 		{
+			g_debug ("line %i", gtk_text_iter_get_line (&current));
 			indent = gsi_indenter_utils_get_indent_to_iter (view,
 									&current);
 			gtk_text_buffer_begin_user_action (buffer);
@@ -383,19 +383,50 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 	
 	line_text = get_line_text (buffer, &prev_iter);
 	
-	if (g_regex_match_simple ("\\)[\\s|;]*$",
+	if (g_regex_match_simple ("\\)[\\s|;|,]*$",
 				  line_text,
 				  0,
 				  0))
 	{
+		gtk_text_iter_backward_char (&current);
+		g_debug ("close found");
+		print_iter (&current);
 		if (find_open_char (&current,
 				    '(',
 				    ')',
 				    TRUE))
 		{
-			gint line = gtk_text_iter_get_line (&current);
-			indent = gsi_indenter_utils_get_line_indentation (buffer, line, TRUE);
+			/*Search if we are inside another function or sentence*/
+			GtkTextIter open = current;
+			gchar c;
+			do
+			{
+				gtk_text_iter_backward_char (&open);
+				c = gtk_text_iter_get_char (&open);
+				print_iter (&open);
+				if (c == '(')
+				{
+					current = open;
+					break;
+				}
+			}
+			while (c != '\n' && c != '\r');
 			
+			if (c == '(')
+			{
+				/*Indent to the open braket*/
+				indent = gsi_indenter_utils_get_indent_to_iter (view,
+										&current);
+			}
+			else
+			{
+				/*TODO Check if the ( is a sentence*/
+				
+				/*Indent to the braket line*/
+				indent = gsi_indenter_utils_get_line_indentation (buffer,
+										  gtk_text_iter_get_line (&current),
+										  TRUE);
+			}
 			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_utils_replace_indentation (buffer, gtk_text_iter_get_line (iter), indent);
 			gtk_text_buffer_end_user_action (buffer);

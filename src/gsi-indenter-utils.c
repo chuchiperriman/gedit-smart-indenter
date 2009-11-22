@@ -233,7 +233,7 @@ gsi_indenter_utils_get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 	
 	return gtk_text_buffer_get_text (buffer,
 					 &start,
-					 iter,
+					 &end,
 					 FALSE);
 }
 
