@@ -3,7 +3,7 @@
 #include "gsi-indenter-cxx.h"
 #include "gsi-indenter-utils.h"
 
-#define INDENTER_CXX_PRIVATE(o) \
+#define GSI_INDENTER_CXX_GET_PRIVATE(o) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTER_CXX, GsiIndenterCxxPrivate))
 
 #define RELOCATORS "{}"
@@ -27,6 +27,10 @@ typedef struct{
 
 struct _GsiIndenterCxxPrivate
 {
+	GtkTextView *view;
+	GtkTextBuffer *buffer;
+	GtkTextIter iter;
+	
 	gboolean use_spaces;
 	guint tab_width;
 };
@@ -196,7 +200,6 @@ get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
 	clean_line_to_regexp (text);
 	
 	return text;
-	
 }
 
 static gboolean
@@ -436,11 +439,92 @@ gsi_indenter_cxx_indent_close_func (GsiIndenter *indenter,
 	return FALSE;
 }
 
+static gboolean
+find_text (GtkTextIter *origin, const gchar *chars, GtkTextIter *result)
+{
+	GtkTextIter iter = *origin;
+	GtkTextIter temp;
+	gchar c = gtk_text_iter_get_char (&iter);
+	const gchar *sc = chars;
+	gboolean found = FALSE;
+	
+	while (c != '\r' && c != '\n')
+	{
+		sc = chars;
+		found = FALSE;
+		temp = iter;
+		while (*sc != '\0')
+		{
+			if (c == *sc)
+			{
+				found = TRUE;
+				sc++;
+				if (*sc == '\0')
+				{
+					break;
+				}
+					
+				if (!gtk_text_iter_forward_char (&temp))
+				{
+					found = FALSE;
+					break;
+				}
+				c = gtk_text_iter_get_char (&temp);
+			}
+			else
+			{
+				found = FALSE;
+				break;
+			}
+		}
+		if (found)
+		{
+			if (result != NULL)
+				*result = iter;
+			break;
+		}
+		
+		if (!gtk_text_iter_forward_char (&iter))
+			break;
+		c = gtk_text_iter_get_char (&iter);
+	}
+	
+	return found;
+}
+
+
+static gboolean
+process_multi_comment (GsiIndenterCxx *self)
+{
+	GtkTextIter iter = self->priv->iter;
+	GtkTextIter result;
+	gtk_text_iter_backward_line (&iter);
+	
+	
+	if (find_text (&iter, "/*", &result))
+	{
+		if (!find_text (&result, "*/", NULL))
+		{
+			g_debug ("find open multicomment");
+			print_iter (&result);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void
 gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
+	GsiIndenterCxx *self = GSI_INDENTER_CXX (indenter);
+	self->priv->view = view;
+	self->priv->buffer = gtk_text_view_get_buffer (view);
+	self->priv->iter = *iter;
+	
+	process_multi_comment (self);
+	
 	/*TODO Previous indentation by the moment*/
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 	gint line = gtk_text_iter_get_line (iter);
@@ -613,6 +697,7 @@ gsi_indenter_cxx_class_init (GsiIndenterCxxClass *klass)
 static void
 gsi_indenter_cxx_init (GsiIndenterCxx *self)
 {
+	self->priv = GSI_INDENTER_CXX_GET_PRIVATE (self);
 }
 
 GsiIndenter*
