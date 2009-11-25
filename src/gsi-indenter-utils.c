@@ -130,6 +130,32 @@ gsi_indenter_utils_get_indent_to_iter (GtkSourceView *view, GtkTextIter *iter)
 }
 
 gboolean
+gsi_indenter_utils_iter_backward_line_not_empty (GtkTextIter *iter)
+{
+	gunichar c;
+	
+	while (gtk_text_iter_backward_line (iter))
+	{
+		while (gtk_text_iter_forward_char (iter))
+		{
+			c = gtk_text_iter_get_char (iter);
+
+			if (c == '\n' || c == '\r')
+				break;
+			
+			if (c != ' ' && c != '\t')
+			{
+				gtk_text_iter_set_line_offset (iter, 0);
+				return TRUE;
+			}
+		}
+		
+	}
+	return FALSE;
+}
+
+/*TODO Check blanks and tabs*/
+gboolean
 gsi_indenter_utils_is_empty_line (GtkTextBuffer	*buffer,
 				  gint		 line)
 {

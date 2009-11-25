@@ -46,6 +46,7 @@ void		 gsi_indenter_utils_indent_region_by_line	(GsiIndenter *indenter,
 								 GtkTextIter *start,
 								 GtkTextIter *end);
 
+gboolean	 gsi_indenter_utils_iter_backward_line_not_empty (GtkTextIter *iter);
 G_END_DECLS
 
 #endif /* _GSI_INDENTER_UTILS_H */
