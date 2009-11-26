@@ -499,7 +499,7 @@ process_multi_comment_real (GsiIndenterCxx *self, GtkTextIter *iter,
 	if (!found)
 	{
 		gchar *text = get_line_text (self->priv->buffer, &copy);
-		if (g_regex_match_simple ("^\\s*\\*[^/]?.*$",
+		if (g_regex_match_simple ("^\\s*\\*(?!\\/)(?!.*\\*\\/)",
 					  text,
 					  0,
 					  0))
@@ -508,6 +508,7 @@ process_multi_comment_real (GsiIndenterCxx *self, GtkTextIter *iter,
 				found = process_multi_comment_real (self, &copy, FALSE);
 		}
 	}
+		 
 	return found;	
 }
 

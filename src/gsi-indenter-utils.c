@@ -141,7 +141,10 @@ gsi_indenter_utils_iter_backward_line_not_empty (GtkTextIter *iter)
 			c = gtk_text_iter_get_char (iter);
 
 			if (c == '\n' || c == '\r')
+			{
+				gtk_text_iter_backward_char (iter);
 				break;
+			}
 			
 			if (c != ' ' && c != '\t')
 			{
