@@ -56,8 +56,8 @@ static gboolean gsi_indenter_relocate_impl (GsiIndenter	*self,
 					    gchar	 relocator);
 
 static RegexpDef regexp_list [] = {
-	{".*\\/\\*(?!.*\\*\\/)", INDENTATION_APPEND, " * ", apply_prev_indent},
-	{"^\\s*\\*[^/].*$", INDENTATION_APPEND, "* ", apply_prev_indent},
+//	{".*\\/\\*(?!.*\\*\\/)", INDENTATION_APPEND, " * ", apply_prev_indent},
+//	{"^\\s*\\*[^/].*$", INDENTATION_APPEND, "* ", apply_prev_indent},
 	{".*\\{(?!.*\\})", INDENTATION_BASIC, NULL, apply_prev_indent},
 	{"(if|while|for)\\s*\\([^\\(]*\\)\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent},
 	{"^\\s*else\\s*$", INDENTATION_BASIC, NULL, apply_prev_indent}
@@ -596,7 +596,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	}
 	*/
 	
-	if (!found)
+	/*if (!found)
 	{
 		gchar *indentation = NULL;
 		indentation = gsi_indenter_utils_get_line_indentation (self->priv->buffer, line - 1, TRUE);
@@ -605,6 +605,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 		gsi_indenter_utils_replace_indentation (self->priv->buffer, line, indentation);
 		gtk_text_buffer_end_user_action (self->priv->buffer);
 	}
+	*/
 }
 
 static void

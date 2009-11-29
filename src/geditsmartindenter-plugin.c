@@ -123,7 +123,16 @@ insert_text_cb (GtkTextBuffer *buffer,
 	c = text[len-1];
 	if (c == '\n')
 	{
+		/* remember where the insert pos was so that we can revalidate
+		 * the iterator that was passed in */
+		GtkTextMark * mark;
+		gint insert_iterator_pos = gtk_text_iter_get_offset (location);
+
 		gsi_indenter_indent_line (indenter, view, location);
+		
+		mark = gtk_text_buffer_get_mark (buffer, "insert");
+		gtk_text_buffer_get_iter_at_mark (buffer, location, mark);
+		gtk_text_buffer_get_iter_at_offset (buffer, location, insert_iterator_pos);
 		return;
 	}
 	
