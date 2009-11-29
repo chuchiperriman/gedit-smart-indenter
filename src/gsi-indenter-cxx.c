@@ -596,7 +596,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	}
 	*/
 	
-	/*if (!found)
+	if (!found)
 	{
 		gchar *indentation = NULL;
 		indentation = gsi_indenter_utils_get_line_indentation (self->priv->buffer, line - 1, TRUE);
@@ -605,7 +605,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 		gsi_indenter_utils_replace_indentation (self->priv->buffer, line, indentation);
 		gtk_text_buffer_end_user_action (self->priv->buffer);
 	}
-	*/
 }
 
 static void

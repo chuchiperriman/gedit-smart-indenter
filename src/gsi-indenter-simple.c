@@ -3,7 +3,7 @@
 #include "gsi-indenter-simple.h"
 #include "gsi-indenter-utils.h"
 
-#define INDENTER_SIMPLE_PRIVATE(o) \
+#define GSI_INDENTER_SIMPLE_GET_PRIVATE(o) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTER_SIMPLE, GsiIndenterSimplePrivate))
   
 typedef struct _GsiIndenterSimplePrivate GsiIndenterSimplePrivate;
@@ -49,18 +49,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 }
 
 static void
-gsi_indenter_indent_region_impl (GsiIndenter *indenter,
-				 GtkTextView *view,
-				 GtkTextIter *start,
-				 GtkTextIter *end)
-{
-	gsi_indenter_utils_indent_region_by_line (indenter,
-						  view,
-						  start,
-						  end);
-}
-
-static void
 gsi_indenter_iface_init (gpointer g_iface,
                          gpointer iface_data)
 {
@@ -68,7 +56,6 @@ gsi_indenter_iface_init (gpointer g_iface,
 
         /* Interface data getter implementations */
         iface->indent_line = gsi_indenter_indent_line_impl;
-        iface->indent_region = gsi_indenter_indent_region_impl;
 }
 
 static void
@@ -92,8 +79,8 @@ gsi_indenter_simple_init (GsiIndenterSimple *self)
 {
 }
 
-GsiIndenterSimple*
+GsiIndenter*
 gsi_indenter_simple_new (void)
 {
-	return g_object_new (GSI_TYPE_INDENTER_SIMPLE, NULL);
+	return GSI_INDENTER (g_object_new (GSI_TYPE_INDENTER_SIMPLE, NULL));
 }

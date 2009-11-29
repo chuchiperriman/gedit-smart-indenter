@@ -4,6 +4,91 @@
 
 #include <string.h>
 
+gint
+gsi_indenter_utils_view_get_real_indent_width (GtkSourceView *view)
+{
+	gint indent_width = gtk_source_view_get_indent_width (view);
+	guint tab_width = gtk_source_view_get_tab_width (view);
+
+	return indent_width < 0 ? tab_width : indent_width;
+}
+
+gint
+gsi_indenter_utils_get_amount_indents (GtkTextView *view,
+					GtkTextIter *cur)
+{
+	GtkTextIter start;
+	gunichar c;
+	
+	g_return_val_if_fail (GTK_IS_TEXT_VIEW (view), 0);
+	g_return_val_if_fail (cur != NULL, 0);
+	
+	start = *cur;
+	gtk_text_iter_set_line_offset (&start, 0);
+	
+	c = gtk_text_iter_get_char (&start);
+	
+	while (g_unichar_isspace (c) &&
+	       c != '\n' &&
+	       c != '\r')
+	{
+		if (!gtk_text_iter_forward_char (&start))
+			break;
+		
+		c = gtk_text_iter_get_char (&start);
+	}
+
+	return gsi_indenter_utils_get_amount_indents_from_position (view, &start);
+}
+
+gint
+gsi_indenter_utils_get_amount_indents_from_position (GtkTextView *view,
+						     GtkTextIter *cur)
+{
+	gint indent_width;
+	GtkTextIter start;
+	gunichar c;
+	gint amount = 0;
+	gint rest = 0;
+	
+	g_return_val_if_fail (GTK_IS_TEXT_VIEW (view), 0);
+	g_return_val_if_fail (cur != NULL, 0);
+	
+	indent_width = gsi_indenter_utils_view_get_real_indent_width (GTK_SOURCE_VIEW (view));
+	
+	start = *cur;
+	gtk_text_iter_set_line_offset (&start, 0);
+	
+	c = gtk_text_iter_get_char (&start);
+	
+	while (gtk_text_iter_compare (&start, cur) < 0)
+	{
+		if (c == '\t')
+		{
+			if (rest != 0)
+				rest = 0;
+			amount += indent_width;
+		}
+		else
+		{
+			rest++;
+		}
+		
+		if (rest == indent_width)
+		{
+			amount += indent_width;
+			rest = 0;
+		}
+		
+		if (!gtk_text_iter_forward_char (&start))
+			break;
+		
+		c = gtk_text_iter_get_char (&start);
+	}
+	
+	return amount + rest;
+}
+
 /* Copied from gtksourceview. gtksourceview doesn't free the returned text */
 gchar*
 gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
@@ -47,31 +132,6 @@ gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
 	}
 	
 	return indentation;
-}
-
-gboolean
-gsi_indenter_utils_move_to_no_space (GtkTextIter *iter,
-				     gint direction,
-				     gboolean ignore_new_line)
-{
-	gunichar c;
-	gboolean moved = TRUE;
-	
-	g_return_val_if_fail (iter != NULL, FALSE);
-	
-	c = gtk_text_iter_get_char (iter);
-	
-	while (g_unichar_isspace (c) && (ignore_new_line || (c != '\n' && c != '\r')))
-	{
-		if (!gtk_text_iter_forward_chars (iter, direction))
-		{
-			moved = FALSE;
-			break;
-		}
-		c = gtk_text_iter_get_char (iter);
-	}
-	
-	return moved;
 }
 
 /* Returns new allocated string */
@@ -195,6 +255,123 @@ gsi_indenter_utils_replace_indentation (GtkTextBuffer	*buffer,
 }
 
 gboolean
+gsi_indenter_utils_move_to_no_space (GtkTextIter *iter,
+				     gint direction,
+                                     gboolean ignore_new_line)
+{
+       gunichar c;
+       gboolean moved = TRUE;
+       
+       g_return_val_if_fail (iter != NULL, FALSE);
+       
+       c = gtk_text_iter_get_char (iter);
+       
+       while (g_unichar_isspace (c) && (ignore_new_line || (c != '\n' && c != '\r')))
+       {
+               if (!gtk_text_iter_forward_chars (iter, direction))
+               {
+                       moved = FALSE;
+                       break;
+               }
+               c = gtk_text_iter_get_char (iter);
+       }
+       
+       return moved;
+}
+
+
+gboolean
+gsi_indenter_utils_move_to_no_comments (GtkTextIter *iter)
+{
+	gunichar c;
+	
+	g_return_val_if_fail (iter != NULL, FALSE);
+	
+	c = gtk_text_iter_get_char (iter);
+	
+	if (c == '/' && gtk_text_iter_backward_char (iter))
+	{
+		c = gtk_text_iter_get_char (iter);
+		
+		if (c == '*')
+		{
+			/*
+			 * We look backward for '*' '/'
+			 */
+			for (;;)
+			{
+				if (!gtk_text_iter_backward_char (iter))
+					return FALSE;
+				c = gtk_text_iter_get_char (iter);
+				
+				if (c == '*')
+				{
+					if (!gtk_text_iter_backward_char (iter))
+						return FALSE;
+					c = gtk_text_iter_get_char (iter);
+					
+					if (c == '/')
+					{
+						/*
+						 * We reached to the beggining of the comment,
+						 * now we have to look backward for non spaces
+						 */
+						if (!gtk_text_iter_backward_char (iter))
+							return FALSE;
+						c = gtk_text_iter_get_char (iter);
+						
+						while (g_unichar_isspace (c) && gtk_text_iter_backward_char (iter))
+						{
+							c = gtk_text_iter_get_char (iter);
+						}
+						
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	return TRUE;
+}
+
+gboolean
+gsi_indenter_utils_move_to_no_preprocessor (GtkTextIter *iter)
+{
+	gunichar c;
+	GtkTextIter copy;
+	gboolean moved = TRUE;
+	
+	copy = *iter;
+	
+	gtk_text_iter_set_line_offset (&copy, 0);
+	gsi_indenter_utils_move_to_no_space (&copy, 1, TRUE);
+	
+	c = gtk_text_iter_get_char (&copy);
+	
+	if (c == '#')
+	{
+		/*
+		 * Move back until we get a no space char
+		 */
+		do
+		{
+			if (!gtk_text_iter_backward_char (&copy))
+				moved = FALSE;
+			c = gtk_text_iter_get_char (&copy);
+		} while (g_unichar_isspace (c));
+		
+		*iter = copy;
+	}
+	else
+	{
+		moved = FALSE;
+	}
+	
+	return moved;
+}
+
+gboolean
 gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 				   gchar open,
 				   gchar close,
@@ -295,7 +472,6 @@ gsi_indenter_utils_indent_region_by_line (GsiIndenter *indenter,
 	
 	/*We indent based on the first selected line*/
 	start_line++;
-	gtk_text_buffer_begin_user_action (buffer);
 	while (start_line <= end_line)
 	{
 		gtk_text_buffer_get_iter_at_line (buffer, &iter, start_line);
@@ -303,5 +479,44 @@ gsi_indenter_utils_indent_region_by_line (GsiIndenter *indenter,
 		start_line++;
 		
 	}
-	gtk_text_buffer_end_user_action (buffer);
 }
+
+gint
+gsi_indenter_utils_add_indent (GtkTextView *view,
+				gint current_level)
+{
+	gint indent_width;
+	
+	g_return_val_if_fail (GTK_IS_TEXT_VIEW (view), 0);
+	
+	indent_width = gsi_indenter_utils_view_get_real_indent_width (GTK_SOURCE_VIEW (view));
+	
+	return current_level + indent_width;
+}
+
+gchar *
+gsi_indenter_utils_get_indent_string_from_indent_level (GtkSourceView *view,
+							gint level)
+{
+        gint tabs;
+        gint spaces;
+        gchar *indent = NULL;
+        gboolean insert_spaces = gtk_source_view_get_insert_spaces_instead_of_tabs (view);
+	gint indent_width;
+	
+        indent_width = gsi_indenter_utils_view_get_real_indent_width (view);
+        tabs = level / indent_width;
+        spaces = level % indent_width;
+
+        if (insert_spaces)
+        {
+                indent = g_strnfill (indent_width * tabs + spaces, ' ');
+        }
+        else
+        {
+                indent = gsi_indenter_utils_get_indent_from_tabs (tabs, spaces);
+        }
+
+        return indent;
+}
+								  

@@ -24,7 +24,7 @@
 
 #include "geditsmartindenter-plugin.h"
 #include "gsi-indenters-manager.h"
-#include "gsi-indenter-cxx.h"
+#include "gsi-indenter-c.h"
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
@@ -66,7 +66,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 
 	plugin->priv->manager = gsi_indenters_manager_new ();
 	
-	indenter = gsi_indenter_cxx_new ();
+	indenter = gsi_indenter_c_new ();
 	gsi_indenters_manager_register (plugin->priv->manager,
 					"c",
 					indenter);

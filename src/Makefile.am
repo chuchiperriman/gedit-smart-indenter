@@ -22,8 +22,8 @@ libgeditsmartindenter_la_SOURCES = \
 	gsi-indenters-manager.c		\
 	gsi-indenter-simple.h		\
 	gsi-indenter-simple.c		\
-	gsi-indenter-cxx.h		\
-	gsi-indenter-cxx.c
+	gsi-indenter-c.h		\
+	gsi-indenter-c.c
 
 libgeditsmartindenter_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
 

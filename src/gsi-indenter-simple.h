@@ -39,7 +39,7 @@ typedef struct {
 
 GType gsi_indenter_simple_get_type (void);
 
-GsiIndenterSimple* gsi_indenter_simple_new (void);
+GsiIndenter* gsi_indenter_simple_new (void);
 
 G_END_DECLS
 
