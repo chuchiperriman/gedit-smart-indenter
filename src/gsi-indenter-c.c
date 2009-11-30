@@ -243,7 +243,7 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	else if (c == '{')
 	{
 		amount = gsi_indenter_utils_get_amount_indents (view,
-								 &iter);
+								&iter);
 		
 		/*
 		 * Check that the previous line match regexes
@@ -433,28 +433,58 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	return amount;
 }
 
-static void
-gsi_indenter_indent_line_impl (GsiIndenter *indenter,
+static gboolean
+gsi_indenter_indent_line_real (GsiIndenter *indenter,
 			       GtkTextView *view,
-			       GtkTextIter *iter)
+			       GtkTextIter *iter,
+			       gboolean relocate)
 {
 	gint level;
 	gchar *indent;
 	GtkTextBuffer *buffer;
+	gboolean res = FALSE;
 	
 	buffer = gtk_text_view_get_buffer (view);
 	level = c_indenter_get_indentation_level (indenter,
 						  view,
 						  iter,
-						  FALSE);
+						  relocate);
 	indent = gsi_indenter_utils_get_indent_string_from_indent_level  (GTK_SOURCE_VIEW (view), level);
 	if (indent)
 	{
 		gtk_text_buffer_begin_user_action (buffer);
-		gtk_text_buffer_insert (buffer, iter, indent, strlen (indent));
+		gsi_indenter_utils_replace_indentation (buffer,
+							gtk_text_iter_get_line (iter),
+							indent);
 		g_free (indent);
 		gtk_text_buffer_end_user_action (buffer);
+		res = TRUE;
 	}
+	return res;
+}
+
+static void
+gsi_indenter_indent_line_impl (GsiIndenter *indenter,
+			       GtkTextView *view,
+			       GtkTextIter *iter)
+{
+	gsi_indenter_indent_line_real (indenter, view, iter, FALSE);
+}
+
+static const gchar*
+gsi_indenter_get_relocators_impl (GsiIndenter	*self,
+			     	  GtkTextView	*view)
+{
+	return "{}:";
+}
+
+static gboolean
+gsi_indenter_relocate_impl (GsiIndenter	*self,
+			    GtkTextView	*view,
+			    GtkTextIter	*iter,
+			    gchar	 relocator)
+{
+	return gsi_indenter_indent_line_real (self, view, iter, TRUE);
 }
 
 static void
@@ -465,6 +495,8 @@ gsi_indenter_iface_init (gpointer g_iface,
 
         /* Interface data getter implementations */
         iface->indent_line = gsi_indenter_indent_line_impl;
+	iface->get_relocators = gsi_indenter_get_relocators_impl;
+	iface->relocate = gsi_indenter_relocate_impl;
 }
 
 static void
