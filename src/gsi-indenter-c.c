@@ -54,7 +54,6 @@ match_regexes (GtkTextIter *iter,
 	
 	string = gtk_text_iter_get_text (&start, iter);
 	gtk_text_iter_backward_char (iter);
-	g_warning ("%s",string);
 	
 	while (regexes[i] != NULL)
 	{
@@ -133,6 +132,8 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	
 	iter = *cur;
 	
+	gtk_text_iter_backward_char (&iter);
+	
 	/* Skip all preprocessor sentences */
 	while (!relocating && gsi_indenter_utils_move_to_no_preprocessor (&iter))
 		continue;
@@ -147,7 +148,6 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 		return 0;
 
 	c = gtk_text_iter_get_char (&iter);
-	g_warning ("char %c", c);
 	
 	if (c == '*')
 	{
@@ -443,7 +443,6 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 	GtkTextBuffer *buffer;
 	
 	buffer = gtk_text_view_get_buffer (view);
-	
 	level = c_indenter_get_indentation_level (indenter,
 						  view,
 						  iter,

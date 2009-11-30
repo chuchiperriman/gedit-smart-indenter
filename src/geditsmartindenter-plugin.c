@@ -119,7 +119,7 @@ insert_text_cb (GtkTextBuffer *buffer,
 	}
 	indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
 	g_assert (indenter != NULL);
-		
+	
 	c = text[len-1];
 	if (c == '\n')
 	{
@@ -127,7 +127,7 @@ insert_text_cb (GtkTextBuffer *buffer,
 		 * the iterator that was passed in */
 		GtkTextMark * mark;
 		gint insert_iterator_pos = gtk_text_iter_get_offset (location);
-
+		
 		gsi_indenter_indent_line (indenter, view, location);
 		
 		mark = gtk_text_buffer_get_mark (buffer, "insert");
@@ -218,6 +218,24 @@ paste_done_cb (GtkTextBuffer *buffer,
 }
 
 static void
+undo_cb (GtkTextView *view,
+	 GeditsmartindenterPlugin *self)
+{
+	g_signal_handlers_block_by_func (gtk_text_view_get_buffer (view),
+					 insert_text_cb,
+					 self);
+}
+
+static void
+undo_after_cb (GtkTextView *view,
+	       GeditsmartindenterPlugin *self)
+{
+	g_signal_handlers_unblock_by_func (gtk_text_view_get_buffer (view),
+					   insert_text_cb,
+					   self);
+}
+
+static void
 document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 {
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
@@ -241,6 +259,26 @@ document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 			  "paste-done",
 			  G_CALLBACK (paste_done_cb),
 			  self);
+	
+	/*Block/unblock the insert-text signal on undo*/
+	g_signal_connect (view,
+			  "undo",
+			  G_CALLBACK (undo_cb),
+			  self);
+	g_signal_connect_after (view,
+				"undo",
+			  	G_CALLBACK (undo_after_cb),
+			  	self);
+	/*Block/unblock the insert-text signal on redo*/
+	g_signal_connect (view,
+			  "redo",
+			  G_CALLBACK (undo_cb),
+			  self);
+	g_signal_connect_after (view,
+				"redo",
+			  	G_CALLBACK (undo_after_cb),
+			  	self);
+	
 	g_object_set_data (G_OBJECT (view), ENABLED_KEY, buffer);
 }
 

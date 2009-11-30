@@ -395,26 +395,23 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */
-		if (c == close)
-		{
-			if (skip_first)
-				skip_first = FALSE;
-			else			
-				counter--;
-		}
-		if (c == open)
-		{
-			if (counter != 0)
-			{
-				counter++;
-			}
-			else
-			{
-				*iter = copy;
-				moved = TRUE;
-				break;
-			}
-		}
+		if (c == close || skip_first)
+                {
+                        counter--;
+                        skip_first = FALSE;
+                }
+
+                if (c == open && counter != 0)
+                {
+                        counter++;
+                }
+
+                if (counter == 0)
+                {
+                        *iter = copy;
+                        moved = TRUE;
+                        break;
+                }
 	}
 	while (gtk_text_iter_backward_char (&copy) &&
 	       (c = gtk_text_iter_get_char (&copy)));
