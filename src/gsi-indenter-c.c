@@ -127,11 +127,21 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	 * and manage the iter to get a context to get the right amount of indents
 	 */
 	GtkTextIter iter;
+	
 	gunichar c;
 	gint amount = 0;
 	
 	iter = *cur;
 	
+	
+	if (!relocating)
+	{
+		/*
+		 * Move to the start line because the <control>j can be
+		 * pressed in the middle of a line
+		 */
+		gtk_text_iter_set_line_offset (&iter, 0);
+	}
 	gtk_text_iter_backward_char (&iter);
 	
 	/* Skip all preprocessor sentences */
