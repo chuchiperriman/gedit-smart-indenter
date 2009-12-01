@@ -1,6 +1,7 @@
 /* gsi-indenter.c */
 
 #include "gsi-indenter.h"
+#include "gsi-indenter-utils.h"
 
 static void
 gsi_indenter_indent_line_default (GsiIndenter	*self,
@@ -15,6 +16,10 @@ gsi_indenter_indent_region_default (GsiIndenter	*self,
 				    GtkTextIter	*start,
 				    GtkTextIter	*end)
 {
+	gsi_indenter_utils_indent_region_by_line (self,
+						  view,
+						  start,
+						  end);
 }
 
 static const gchar*
@@ -30,7 +35,8 @@ gsi_indenter_relocate_default (GsiIndenter	*self,
 			       GtkTextIter	*iter,
 			       gchar		 relocator)
 {
-	return FALSE;
+	GSI_INDENTER_GET_INTERFACE (self)->indent_line (self, view, iter);
+	return TRUE;
 }
 
 static void
