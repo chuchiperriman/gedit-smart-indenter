@@ -108,6 +108,8 @@ insert_text_cb (GtkTextBuffer *buffer,
 	const gchar *relocators = NULL;
 	gchar c;
 	gboolean found = FALSE;
+	GtkTextMark * mark;
+	gint insert_iterator_pos;
 
 	view = get_view (buffer);
 		
@@ -120,42 +122,48 @@ insert_text_cb (GtkTextBuffer *buffer,
 	indenter = gsi_indenters_manager_get_indenter (self->priv->manager, lang_id);
 	g_assert (indenter != NULL);
 	
+	/* remember where the insert pos was so that we can revalidate
+	 * the iterator that was passed in 
+	 */
+		
+	insert_iterator_pos = gtk_text_iter_get_offset (location);
+	
 	c = text[len-1];
 	if (c == '\n')
 	{
-		/* remember where the insert pos was so that we can revalidate
-		 * the iterator that was passed in */
-		GtkTextMark * mark;
-		gint insert_iterator_pos = gtk_text_iter_get_offset (location);
-		
 		gsi_indenter_indent_line (indenter, view, location);
-		
-		mark = gtk_text_buffer_get_mark (buffer, "insert");
-		gtk_text_buffer_get_iter_at_mark (buffer, location, mark);
-		gtk_text_buffer_get_iter_at_offset (buffer, location, insert_iterator_pos);
-		return;
 	}
-	
-	relocators = gsi_indenter_get_relocators (indenter, view);
-	
-	if (!relocators)
-		return;
-	
-	while (*relocators != '\0')
+	else
 	{
-	  if (c == *relocators)
-	    {
-	      found = TRUE;
-	      break;
-	    }
-	  relocators++;
+		relocators = gsi_indenter_get_relocators (indenter, view);
+	
+		if (!relocators)
+			return;
+	
+		while (*relocators != '\0')
+		{
+		  if (c == *relocators)
+		    {
+		      found = TRUE;
+		      break;
+		    }
+		  relocators++;
+		}
+	
+		if (!found)
+		  return;
+
+		
+		if (gsi_indenter_relocate (indenter, view, location, c))
+		  g_debug ("relocated");
 	}
 	
-	if (!found)
-	  return;
-
-	if (gsi_indenter_relocate (indenter, view, location, c))
-	  g_debug ("relocated");
+	mark = gtk_text_buffer_get_mark (buffer, "insert");
+	gtk_text_buffer_get_iter_at_mark (buffer, location, mark);
+	gtk_text_buffer_get_iter_at_offset (buffer,
+					    location,
+					    insert_iterator_pos);
+		
 }
 
 static gboolean
