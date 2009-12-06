@@ -257,28 +257,27 @@ process_multi_comment (GtkTextView *view,
 {
 	GtkTextIter copy = *iter;
 	gchar *line_text;
-	gint amount = -1;
 	GtkTextBuffer *buffer;
+	gboolean res = FALSE;
 	
 	buffer = gtk_text_view_get_buffer (view);
 	
 	line_text = get_line_text (buffer, &copy);
 
-	idata->append = "* ";
-	
 	if (g_regex_match_simple (".*\\/\\*(?!.*\\*\\/)",
 				  line_text,
 				  0,
 				  0))
 	{
-		amount = gsi_indenter_utils_get_amount_indents (view,
+		idata->level = gsi_indenter_utils_get_amount_indents (view,
 								&copy);
-		amount++;
+		idata->level++;
+		idata->append = g_strdup ("* ");
+		res = TRUE;
 	}
 	
-	if (amount == -1)
+	if (!res)
 	{
-		g_debug ("start comment not");
 		gchar *text = get_line_text (buffer, &copy);
 		g_debug ("text [%s]", text);
 		if (g_regex_match_simple ("^\\s*\\*(?!\\/)(?!.*\\*\\/)",
@@ -289,13 +288,13 @@ process_multi_comment (GtkTextView *view,
 			if (gsi_indenter_utils_iter_backward_line_not_empty (&copy))
 			{
 				g_debug ("found nextcomment");
-				amount = process_multi_comment (view, &copy, idata, FALSE);
+				res = process_multi_comment (view, &copy, idata, FALSE);
+				//idata->append = g_strdup ("* ");
 			}
 		}
 	}
 
-	idata->level = amount;
-	return amount != -1;
+	return res;
 }
 
 static gboolean
@@ -652,7 +651,6 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
-	gint level;
 	gchar *indent;
 	GtkTextBuffer *buffer;
 	gboolean res = FALSE;
