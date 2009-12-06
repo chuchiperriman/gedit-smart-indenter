@@ -279,7 +279,6 @@ process_multi_comment (GtkTextView *view,
 	if (!res)
 	{
 		gchar *text = get_line_text (buffer, &copy);
-		g_debug ("text [%s]", text);
 		if (g_regex_match_simple ("^\\s*\\*(?!\\/)(?!.*\\*\\/)",
 					  text,
 					  0,
@@ -287,7 +286,6 @@ process_multi_comment (GtkTextView *view,
 		{
 			if (gsi_indenter_utils_iter_backward_line_not_empty (&copy))
 			{
-				g_debug ("found nextcomment");
 				res = process_multi_comment (view, &copy, idata, FALSE);
 				//idata->append = g_strdup ("* ");
 			}
@@ -319,7 +317,6 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	{
 		if (process_multi_comment (view, &iter, idata, TRUE))
 		{
-			g_debug ("comment");
 			return TRUE;
 		}
 	}
@@ -664,30 +661,34 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 						view,
 						iter,
 						&idata);
-	/*TODO level > 0 || append != NULL*/
-	if (res && idata.level > 0)
+
+	if (res)
 	{
-		g_debug ("level: %i", idata.level);
+		gtk_text_buffer_begin_user_action (buffer);
 		res = FALSE;
-		indent = gsi_indenter_utils_get_indent_string_from_indent_level  (GTK_SOURCE_VIEW (view), 
-										  idata.level);
-		if (indent)
+		if (idata.level > 0)
 		{
-			gtk_text_buffer_begin_user_action (buffer);
-			gsi_indenter_utils_replace_indentation (buffer,
-								gtk_text_iter_get_line (iter),
-								indent);
-			if (idata.append != NULL)
+			indent = gsi_indenter_utils_get_indent_string_from_indent_level
+   					(GTK_SOURCE_VIEW (view), 
+					 idata.level);
+			if (indent)
 			{
-				gtk_text_buffer_insert_at_cursor (buffer,
-								  idata.append,
-								  -1);
-				g_free (idata.append);
+				gsi_indenter_utils_replace_indentation (buffer,
+									gtk_text_iter_get_line (iter),
+									indent);
+				g_free (indent);
+				res = TRUE;
 			}
-			g_free (indent);
-			gtk_text_buffer_end_user_action (buffer);
+		}
+		if (idata.append != NULL)
+		{
+			gtk_text_buffer_insert_at_cursor (buffer,
+							  idata.append,
+							  -1);
+			g_free (idata.append);
 			res = TRUE;
 		}
+		gtk_text_buffer_end_user_action (buffer);
 	}
 	return res;
 }
