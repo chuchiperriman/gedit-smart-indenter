@@ -36,6 +36,12 @@ static const gchar * case_regexes[] =
 	NULL
 };
 
+typedef struct
+{
+	gint level;
+	gchar *append;
+} IndentData;
+
 static gboolean
 match_regexes (GtkTextIter *iter,
 	       const gchar * const *regexes)
@@ -93,6 +99,133 @@ is_caselabel (const gchar *label)
 	return is_case;
 }
 
+static void
+clean_line_to_regexp (gchar *text)
+{
+	guint i;
+	gboolean quotes = FALSE;
+	gboolean dquotes = FALSE;
+	
+	if (text == NULL) 
+		return;
+	
+	for (i = 0; text[i]; i++)
+	{
+		if (text[i] == '\\' && text[i+1])
+		{
+			if (text[i+1] == '\\')
+			{
+				text[i] = ' ';
+				text[i + 1] = ' ';
+				continue;
+			}
+			else if (text[i+1] == '\'' || text[i+1] == '"')
+			{
+				text[i] = ' ';
+				text[i + 1] = ' ';
+				continue;
+			}
+		}
+		
+		if (!quotes && text[i] == '"')
+		{
+			dquotes = !dquotes;
+			continue;
+		}
+		
+		if (!dquotes && text[i] == '\'')
+		{
+			quotes = !quotes;
+			continue;
+		}
+		
+		if (quotes || dquotes)
+		{
+			text[i] = ' ';
+		}
+	}
+}
+
+static void
+move_to_no_simple_comment (GtkTextIter *iter)
+{
+	gunichar c;
+	gunichar cprev = '\0';
+	GtkTextIter copy = *iter;
+	gboolean in_multi = FALSE;
+	
+	gtk_text_iter_set_line_offset (&copy, 0);
+	
+	c = gtk_text_iter_get_char (&copy);
+	do
+	{
+		if (c == '/')
+		{
+			if (in_multi && cprev == '*')
+			{
+				in_multi = FALSE;
+			}
+			else
+			{
+				if (!in_multi)
+				{
+					if (!gtk_text_iter_forward_char (&copy))
+						break;
+					
+					cprev = c;
+					c = gtk_text_iter_get_char (&copy);
+					
+					if (c == '/')
+					{
+						gtk_text_iter_backward_char (&copy);
+						gtk_text_iter_backward_char (&copy);
+						break;
+					}
+					if (c == '*')
+					{
+						in_multi = TRUE;
+					}
+				}
+			}
+		}
+		if (!gtk_text_iter_forward_char (&copy))
+			break;
+		cprev = c;
+		c = gtk_text_iter_get_char (&copy);
+	} while (c != '\n' && c != '\r');
+	
+	*iter = copy;
+}
+
+static gchar*
+get_line_text (GtkTextBuffer *buffer, GtkTextIter *iter)
+{
+	GtkTextIter start, end;
+	gchar c;
+	gchar *text = NULL;
+	
+	start = *iter;
+	gtk_text_iter_set_line_offset (&start, 0);
+	c = gtk_text_iter_get_char (&start);
+	if (c == '\r' || c == '\n')
+		return "";
+
+	end = start;
+
+	/*Ignore the "//comment" part: if (TRUE) //comment */
+	
+	move_to_no_simple_comment (&end);
+	
+	text = gtk_text_buffer_get_text (buffer,
+					 &start,
+					 &end,
+					 FALSE);
+
+	clean_line_to_regexp (text);
+	
+	return text;
+}
+
 static gboolean
 find_char_inline (GtkTextIter *iter,
 		  gunichar c)
@@ -116,10 +249,60 @@ find_char_inline (GtkTextIter *iter,
 	return found;
 }
 
-static gint
+static gboolean
+process_multi_comment (GtkTextView *view,
+		       GtkTextIter *iter,
+		       IndentData *idata,
+		       gboolean first)
+{
+	GtkTextIter copy = *iter;
+	gchar *line_text;
+	gint amount = -1;
+	GtkTextBuffer *buffer;
+	
+	buffer = gtk_text_view_get_buffer (view);
+	
+	line_text = get_line_text (buffer, &copy);
+
+	idata->append = "* ";
+	
+	if (g_regex_match_simple (".*\\/\\*(?!.*\\*\\/)",
+				  line_text,
+				  0,
+				  0))
+	{
+		amount = gsi_indenter_utils_get_amount_indents (view,
+								&copy);
+		amount++;
+	}
+	
+	if (amount == -1)
+	{
+		g_debug ("start comment not");
+		gchar *text = get_line_text (buffer, &copy);
+		g_debug ("text [%s]", text);
+		if (g_regex_match_simple ("^\\s*\\*(?!\\/)(?!.*\\*\\/)",
+					  text,
+					  0,
+					  0))
+		{
+			if (gsi_indenter_utils_iter_backward_line_not_empty (&copy))
+			{
+				g_debug ("found nextcomment");
+				amount = process_multi_comment (view, &copy, idata, FALSE);
+			}
+		}
+	}
+
+	idata->level = amount;
+	return amount != -1;
+}
+
+static gboolean
 c_indenter_get_indentation_level (GsiIndenter *indenter,
 				  GtkTextView *view,
-				  GtkTextIter *cur)
+				  GtkTextIter *cur,
+				  IndentData *idata)
 {
 	/*
 	 * The idea of this algorithm is just move the iter to the right position
@@ -128,24 +311,34 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	GtkTextIter iter;
 	
 	gunichar c;
-	gint amount = 0;
+	gint amount = -1;
 	gint original_line = gtk_text_iter_get_line (cur);
 	
 	iter = *cur;
 	
+	if (gsi_indenter_utils_iter_backward_line_not_empty (&iter))
+	{
+		if (process_multi_comment (view, &iter, idata, TRUE))
+		{
+			g_debug ("comment");
+			return TRUE;
+		}
+	}
+	iter = *cur;
+		
 	/*
 	 * Move to the start line because the <control>j can be
 	 * pressed in the middle of a line
 	 */
 	gtk_text_iter_set_line_offset (&iter, 0);
 	if (!gsi_indenter_utils_move_to_no_space (&iter, 1, FALSE))
-		return 0;
+		return FALSE;
 
 	c = gtk_text_iter_get_char (&iter);
 	
 	/* # is always indent 0. Example: #ifdef */
 	if (c == '#')
-		return 0;
+		return FALSE;
 	
 	/* Skip all preprocessor sentences */
 	//while (!relocating && gsi_indenter_utils_move_to_no_preprocessor (&iter))
@@ -153,13 +346,13 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 		continue;
 	
 	if (!gsi_indenter_utils_move_to_no_space (&iter, -1, TRUE))
-		return 0;
+		return FALSE;
 
 	/*
 	 * Check for comments
 	 */
 	if (!gsi_indenter_utils_move_to_no_comments (&iter))
-		return 0;
+		return FALSE;
 	
 	c = gtk_text_iter_get_char (&iter);
 	
@@ -450,8 +643,8 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 			amount += 1;
 		}
 	}
-	
-	return amount;
+	idata->level = amount;
+	return amount != -1;
 }
 
 static gboolean
@@ -463,21 +656,40 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	gchar *indent;
 	GtkTextBuffer *buffer;
 	gboolean res = FALSE;
+	IndentData idata;
+
+	idata.level = 0;
+	idata.append = NULL;
 	
 	buffer = gtk_text_view_get_buffer (view);
-	level = c_indenter_get_indentation_level (indenter,
-						  view,
-						  iter);
-	indent = gsi_indenter_utils_get_indent_string_from_indent_level  (GTK_SOURCE_VIEW (view), level);
-	if (indent)
+	res = c_indenter_get_indentation_level (indenter,
+						view,
+						iter,
+						&idata);
+	/*TODO level > 0 || append != NULL*/
+	if (res && idata.level > 0)
 	{
-		gtk_text_buffer_begin_user_action (buffer);
-		gsi_indenter_utils_replace_indentation (buffer,
-							gtk_text_iter_get_line (iter),
-							indent);
-		g_free (indent);
-		gtk_text_buffer_end_user_action (buffer);
-		res = TRUE;
+		g_debug ("level: %i", idata.level);
+		res = FALSE;
+		indent = gsi_indenter_utils_get_indent_string_from_indent_level  (GTK_SOURCE_VIEW (view), 
+										  idata.level);
+		if (indent)
+		{
+			gtk_text_buffer_begin_user_action (buffer);
+			gsi_indenter_utils_replace_indentation (buffer,
+								gtk_text_iter_get_line (iter),
+								indent);
+			if (idata.append != NULL)
+			{
+				gtk_text_buffer_insert_at_cursor (buffer,
+								  idata.append,
+								  -1);
+				g_free (idata.append);
+			}
+			g_free (indent);
+			gtk_text_buffer_end_user_action (buffer);
+			res = TRUE;
+		}
 	}
 	return res;
 }
