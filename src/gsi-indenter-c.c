@@ -306,6 +306,7 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	 * and manage the iter to get a context to get the right amount of indents
 	 */
 	GtkTextIter iter;
+	GtkTextIter temp_iter;
 	
 	gunichar c;
 	gint amount = -1;
@@ -320,18 +321,26 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 			return TRUE;
 		}
 	}
+	
+	/*Reset the cursor again*/
 	iter = *cur;
-		
+
 	/*
 	 * Move to the start line because the <control>j can be
 	 * pressed in the middle of a line
 	 */
-	gtk_text_iter_set_line_offset (&iter, 0);
-	if (!gsi_indenter_utils_move_to_no_space (&iter, 1, FALSE))
-		return FALSE;
-
 	c = gtk_text_iter_get_char (&iter);
+	g_debug ("antes offset char %c", c);
 	
+	
+	gtk_text_iter_set_line_offset (&iter, 0);
+	
+	temp_iter = iter;
+	if (!gsi_indenter_utils_move_to_no_space (&temp_iter, 1, FALSE))
+		return FALSE;
+	
+	c = gtk_text_iter_get_char (&temp_iter);
+
 	/* # is always indent 0. Example: #ifdef */
 	if (c == '#')
 		return FALSE;
@@ -339,11 +348,22 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	/* Skip all preprocessor sentences */
 	//while (!relocating && gsi_indenter_utils_move_to_no_preprocessor (&iter))
 	while (gsi_indenter_utils_move_to_no_preprocessor (&iter))
+	{
+		g_debug ("no preprocesor true");
 		continue;
+	}
 	
+	c = gtk_text_iter_get_char (&iter);
+	g_debug ("after no prepro char %c", c);
+	
+	gtk_text_iter_backward_char (&iter);
 	if (!gsi_indenter_utils_move_to_no_space (&iter, -1, TRUE))
 		return FALSE;
 
+	c = gtk_text_iter_get_char (&iter);
+	
+	g_debug ("after no space char %c", c);
+	
 	/*
 	 * Check for comments
 	 */
@@ -352,6 +372,7 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	
 	c = gtk_text_iter_get_char (&iter);
 	
+	g_debug ("check char %c", c);
 	if (c == '*')
 	{
 		gunichar ch;
@@ -609,6 +630,7 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	}
 	else
 	{
+		g_debug ("default indent");
 		GtkTextIter copy;
 		
 		amount = gsi_indenter_utils_get_amount_indents (view, &iter);
@@ -634,11 +656,14 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 		else if (gsi_indenter_utils_find_open_char (&copy, '(', ')',
 							     TRUE))
 		{
+			g_debug ("find ()");
 			amount = gsi_indenter_utils_get_amount_indents_from_position (view,
 										       &copy);
 			amount += 1;
 		}
 	}
+	g_debug ("amount %i", amount);
+
 	idata->level = amount;
 	return amount != -1;
 }
@@ -673,6 +698,7 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 					 idata.level);
 			if (indent)
 			{
+				g_debug ("insert indent [%s]", indent);
 				gsi_indenter_utils_replace_indentation (buffer,
 									gtk_text_iter_get_line (iter),
 									indent);

@@ -111,6 +111,10 @@ insert_text_cb (GtkTextBuffer *buffer,
 	GtkTextMark * mark;
 	gint insert_iterator_pos;
 
+	/*Prevent insertion when gedit insert the text loading the document*/
+	if (len > 2)
+		return;
+	
 	view = get_view (buffer);
 		
 	language = gtk_source_buffer_get_language (GTK_SOURCE_BUFFER (buffer));
