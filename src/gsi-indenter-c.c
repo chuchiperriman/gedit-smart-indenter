@@ -296,6 +296,138 @@ process_multi_comment (GtkTextView *view,
 }
 
 static gboolean
+c_indenter_check_relocators (GsiIndenter *indenter,
+			     GtkTextView *view,
+			     GtkTextIter *cur,
+			     IndentData *idata)
+{
+	GtkTextIter iter;
+	gchar c;
+
+	iter = *cur;
+	
+	gtk_text_iter_set_line_offset (&iter, 0);
+	if (!gsi_indenter_utils_move_to_no_space (&iter, 1, FALSE))
+		return FALSE;
+	
+	c = gtk_text_iter_get_char (&iter);
+	
+	if (c == '#')
+	{
+		idata->level = 0;
+		return TRUE;
+	}
+	else if (c == '{')
+	{
+		/*
+		 * Check that the previous line match regexes
+		 */
+		while (gtk_text_iter_backward_char (&iter) &&
+		       !gtk_text_iter_ends_line (&iter))
+		{
+			continue;
+		}
+		
+		gtk_text_iter_backward_char (&iter);
+		
+		if (match_regexes (&iter, regexes))
+		{
+			gsi_indenter_utils_find_open_char (&iter, '(', ')', FALSE);
+			
+			idata->level = gsi_indenter_utils_get_amount_indents (view,
+									      &iter);
+		}
+		else if (match_regexes (&iter, case_regexes))
+		{
+			gunichar ch;
+			
+			/* We are in a case label like: case 0: if (hello)
+			 * so we first look backward for the ':' and then look forward
+			 * for the first char
+			 */
+			find_char_inline (&iter, ':');
+			gtk_text_iter_forward_char (&iter);
+			ch = gtk_text_iter_get_char (&iter);
+	
+			while (g_unichar_isspace (ch))
+			{
+				gtk_text_iter_forward_char (&iter);
+				ch = gtk_text_iter_get_char (&iter);
+			}
+	
+			idata->level = gsi_indenter_utils_get_amount_indents_from_position (view,
+											    &iter);
+		}
+		else
+		{
+			GtkTextIter start;
+			gchar *label;
+
+			start = iter;
+			gtk_text_iter_set_line_offset (&start, 0);
+			gsi_indenter_utils_move_to_no_space (&start, 1, TRUE);
+
+			label = gtk_text_iter_get_text (&start, &iter);
+			
+			if (is_caselabel (label))
+			{
+				idata->level = gsi_indenter_utils_get_amount_indents (view,
+										      &iter);
+			}
+			
+			g_free (label);
+		}
+	}
+	else if (c == '}')
+	{
+		/*
+		 * We need to look backward for {.
+		 * FIXME: We need to set a number of lines to look backward.
+		 */
+		if (gsi_indenter_utils_find_open_char (&iter, '{', '}', FALSE))
+		{
+			idata->level = gsi_indenter_utils_get_amount_indents (view,
+									      &iter);
+		}
+	}
+	else if (c == ')')
+	{
+		idata->level = gsi_indenter_utils_get_amount_indents (view,
+								      &iter);
+		
+		if (gsi_indenter_utils_find_open_char (&iter, '(', ')', FALSE))
+		{
+			idata->level = gsi_indenter_utils_get_amount_indents_from_position (view, 
+											    &iter);
+		}
+	}
+	else if (c == ':')
+	{
+		GtkTextIter start;
+		gchar *label;
+		
+		start = iter;
+		gtk_text_iter_set_line_offset (&start, 0);
+		gsi_indenter_utils_move_to_no_space (&start, 1, TRUE);
+		
+		label = gtk_text_iter_get_text (&start, &iter);
+		
+		if (!is_caselabel (label))
+		{
+			idata->level = 0;
+		}
+		else
+		{
+			idata->level = gsi_indenter_utils_get_amount_indents (view, 
+									      &iter);
+		}
+		g_free (label);
+	}
+	
+	return idata->level > -1;
+}
+
+static gboolean
 c_indenter_get_indentation_level (GsiIndenter *indenter,
 				  GtkTextView *view,
 				  GtkTextIter *cur,
@@ -306,11 +438,9 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	 * and manage the iter to get a context to get the right amount of indents
 	 */
 	GtkTextIter iter;
-	GtkTextIter temp_iter;
 	
 	gunichar c;
 	gint amount = -1;
-	gint original_line = gtk_text_iter_get_line (cur);
 	
 	iter = *cur;
 	
@@ -325,45 +455,25 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	/*Reset the cursor again*/
 	iter = *cur;
 
+	if (c_indenter_check_relocators (indenter, view, cur, idata))
+		return TRUE;
+	
 	/*
 	 * Move to the start line because the <control>j can be
 	 * pressed in the middle of a line
 	 */
-	c = gtk_text_iter_get_char (&iter);
-	g_debug ("antes offset char %c", c);
-	
-	
 	gtk_text_iter_set_line_offset (&iter, 0);
 	
-	temp_iter = iter;
-	if (!gsi_indenter_utils_move_to_no_space (&temp_iter, 1, FALSE))
-		return FALSE;
-	
-	c = gtk_text_iter_get_char (&temp_iter);
-
-	/* # is always indent 0. Example: #ifdef */
-	if (c == '#')
-		return FALSE;
-	
 	/* Skip all preprocessor sentences */
-	//while (!relocating && gsi_indenter_utils_move_to_no_preprocessor (&iter))
 	while (gsi_indenter_utils_move_to_no_preprocessor (&iter))
 	{
-		g_debug ("no preprocesor true");
 		continue;
 	}
-	
-	c = gtk_text_iter_get_char (&iter);
-	g_debug ("after no prepro char %c", c);
 	
 	gtk_text_iter_backward_char (&iter);
 	if (!gsi_indenter_utils_move_to_no_space (&iter, -1, TRUE))
 		return FALSE;
 
-	c = gtk_text_iter_get_char (&iter);
-	
-	g_debug ("after no space char %c", c);
-	
 	/*
 	 * Check for comments
 	 */
@@ -372,7 +482,6 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	
 	c = gtk_text_iter_get_char (&iter);
 	
-	g_debug ("check char %c", c);
 	if (c == '*')
 	{
 		gunichar ch;
@@ -454,96 +563,21 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	{
 		amount = gsi_indenter_utils_get_amount_indents (view,
 								&iter);
-		
-		/*
-		 * We need to look backward for {.
-		 * FIXME: We need to set a number of lines to look backward.
-		 */
-		//if (relocating && gsi_indenter_utils_find_open_char (&iter, '{', '}', FALSE))
-		if (gsi_indenter_utils_find_open_char (&iter, '{', '}', FALSE))
-		{
-			amount = gsi_indenter_utils_get_amount_indents (view,
-									&iter);
-		}
 	}
 	else if (c == '{')
 	{
 		amount = gsi_indenter_utils_get_amount_indents (view,
 								&iter);
+		/*Is a line after the braket*/
+		amount = gsi_indenter_utils_add_indent (view, amount);
 		
-
-		/*Is a relocation because the user writes { or control+j*/
-		if (original_line == gtk_text_iter_get_line (&iter))
-		{
-			/*
-			 * Check that the previous line match regexes
-			 */
-			while (gtk_text_iter_backward_char (&iter) &&
-			       !gtk_text_iter_ends_line (&iter))
-			{
-				continue;
-			}
-			
-			gtk_text_iter_backward_char (&iter);
-			
-			if (match_regexes (&iter, regexes))
-			{
-				gsi_indenter_utils_find_open_char (&iter, '(', ')', FALSE);
-				
-				amount = gsi_indenter_utils_get_amount_indents (view,
-										&iter);
-			}
-			else if (match_regexes (&iter, case_regexes))
-			{
-				gunichar ch;
-				
-				/* We are in a case label like: case 0: if (hello)
-				 * so we first look backward for the ':' and then look forward
-				 * for the first char
-				 */
-				find_char_inline (&iter, ':');
-				gtk_text_iter_forward_char (&iter);
-				ch = gtk_text_iter_get_char (&iter);
-		
-				while (g_unichar_isspace (ch))
-				{
-					gtk_text_iter_forward_char (&iter);
-					ch = gtk_text_iter_get_char (&iter);
-				}
-		
-				amount = gsi_indenter_utils_get_amount_indents_from_position (view, &iter);
-			}
-			else
-			{
-				GtkTextIter start;
-				gchar *label;
-	
-				start = iter;
-				gtk_text_iter_set_line_offset (&start, 0);
-				gsi_indenter_utils_move_to_no_space (&start, 1, TRUE);
-	
-				label = gtk_text_iter_get_text (&start, &iter);
-				
-				if (is_caselabel (label))
-				{
-					amount = gsi_indenter_utils_get_amount_indents (view, &iter);
-				}
-				
-				g_free (label);
-			}
-		}
-		else
-		{
-			/*Is a line after the braket*/
-			amount = gsi_indenter_utils_add_indent (view, amount);
-		}
 	}
 	else if (c == ',' || c == '&' || c == '|')
 	{
 		GtkTextIter s;
 		
 		amount = gsi_indenter_utils_get_amount_indents (view,
-								 &iter);
+								&iter);
 		
 		s = iter;
 		if (gsi_indenter_utils_find_open_char (&s, '(', ')', TRUE))
@@ -552,22 +586,8 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 			amount++;
 		}
 	}
-	/*
-	else if (c == ')' && relocating)
-	//else if (c == ')')
-	{
-		amount = gsi_indenter_utils_get_amount_indents (view,
-								 &iter);
-		
-		if (gsi_indenter_utils_find_open_char (&iter, '(', ')', FALSE))
-		{
-			amount = gsi_indenter_utils_get_amount_indents_from_position (view, &iter);
-		}
-	}
-	*/
 	else if (c == ':')
 	{
-		/*
 		GtkTextIter start;
 		gchar *label;
 		
@@ -577,28 +597,13 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 		
 		label = gtk_text_iter_get_text (&start, &iter);
 		
-		if (relocating)
+		if (is_caselabel (label))
 		{
-			if (!is_caselabel (label))
-			{
-				amount = 0;
-			}
-			else
-			{
-				amount = gsi_indenter_utils_get_amount_indents (view, &iter);
-			}
-		}
-		else
-		{
-			if (is_caselabel (label))
-			{
-				amount = gsi_indenter_utils_get_amount_indents (view, &iter);
-				amount = gsi_indenter_utils_add_indent (view, amount);
-			}
+			amount = gsi_indenter_utils_get_amount_indents (view, &iter);
+			amount = gsi_indenter_utils_add_indent (view, amount);
 		}
 		
 		g_free (label);
-		*/
 	}
 	else if (match_regexes (&iter, regexes))
 	{
@@ -630,7 +635,6 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 	}
 	else
 	{
-		g_debug ("default indent");
 		GtkTextIter copy;
 		
 		amount = gsi_indenter_utils_get_amount_indents (view, &iter);
@@ -656,14 +660,11 @@ c_indenter_get_indentation_level (GsiIndenter *indenter,
 		else if (gsi_indenter_utils_find_open_char (&copy, '(', ')',
 							     TRUE))
 		{
-			g_debug ("find ()");
 			amount = gsi_indenter_utils_get_amount_indents_from_position (view,
 										       &copy);
 			amount += 1;
 		}
 	}
-	g_debug ("amount %i", amount);
-
 	idata->level = amount;
 	return amount != -1;
 }
@@ -678,7 +679,7 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	gboolean res = FALSE;
 	IndentData idata;
 
-	idata.level = 0;
+	idata.level = -1;
 	idata.append = NULL;
 	
 	buffer = gtk_text_view_get_buffer (view);
@@ -686,25 +687,29 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 						view,
 						iter,
 						&idata);
-
 	if (res)
 	{
 		gtk_text_buffer_begin_user_action (buffer);
 		res = FALSE;
-		if (idata.level > 0)
+		if (idata.level >= 0)
 		{
 			indent = gsi_indenter_utils_get_indent_string_from_indent_level
    					(GTK_SOURCE_VIEW (view), 
 					 idata.level);
 			if (indent)
 			{
-				g_debug ("insert indent [%s]", indent);
 				gsi_indenter_utils_replace_indentation (buffer,
 									gtk_text_iter_get_line (iter),
 									indent);
 				g_free (indent);
-				res = TRUE;
 			}
+			else
+			{
+				gsi_indenter_utils_replace_indentation (buffer,
+									gtk_text_iter_get_line (iter),
+									"");
+			}
+			res = TRUE;
 		}
 		if (idata.append != NULL)
 		{
@@ -734,17 +739,6 @@ gsi_indenter_get_relocators_impl (GsiIndenter	*self,
 	return "{}:#";
 }
 
-/*
-static gboolean
-gsi_indenter_relocate_impl (GsiIndenter	*self,
-			    GtkTextView	*view,
-			    GtkTextIter	*iter,
-			    gchar	 relocator)
-{
-	return gsi_indenter_indent_line_real (self, view, iter, TRUE);
-}
-*/
-
 static void
 gsi_indenter_iface_init (gpointer g_iface,
                          gpointer iface_data)
@@ -754,7 +748,6 @@ gsi_indenter_iface_init (gpointer g_iface,
         /* Interface data getter implementations */
         iface->indent_line = gsi_indenter_indent_line_impl;
 	iface->get_relocators = gsi_indenter_get_relocators_impl;
-	//iface->relocate = gsi_indenter_relocate_impl;
 }
 
 static void
