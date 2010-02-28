@@ -105,6 +105,29 @@ find_char_inline (GtkTextIter *iter,
 }
 
 static gboolean
+move_to_first_blank (GtkTextIter *iter, gboolean forward)
+{
+	gint d = 1;
+	gunichar ch;
+
+	if (!forward)
+		d = -1;
+
+	do
+	{
+		ch = gtk_text_iter_get_char(iter);
+		if (g_unichar_isspace(ch))
+		{
+			gtk_text_iter_forward_char (iter);
+			return TRUE;
+		}
+	} while (gtk_text_iter_forward_chars(iter, d));
+
+	return FALSE;
+	
+}
+
+static gboolean
 move_to_first_non_blank (GtkTextIter *iter, gboolean forward)
 {
 	gint d = 1;
@@ -131,6 +154,9 @@ get_line_indentation (GtkTextIter *iter)
 	GtkTextIter start = *iter;
 	GtkTextIter end = *iter;
 
+	gtk_text_iter_set_line_offset (&start, 0);
+	end = start;
+	
 	ch = gtk_text_iter_get_char (&end);
 
 	while (g_unichar_isspace (ch))
@@ -160,7 +186,7 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	GtkTextBuffer *buffer;
 	GtkTextIter copy = *iter;
 	buffer = gtk_text_view_get_buffer (view);
-	gchar *indent;
+	gchar *indent = NULL;
 	gunichar ch;
 
 	g_debug ("line start %i", gtk_text_iter_get_line (iter));
@@ -172,15 +198,17 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	
 	g_debug ("line nor empty %i", gtk_text_iter_get_line (&copy));
 
-	indent = get_line_indentation(&copy);
-
 	gtk_text_iter_forward_to_line_end (&copy);
+	
 	if (move_to_first_non_blank(&copy, FALSE))
 	{
 		ch = gtk_text_iter_get_char (&copy);
-
+		
+		//Block start
 		if (ch == '{')
 		{
+			indent = get_line_indentation(&copy);
+
 			if (indent)
 			{
 				gchar *temp = indent;
@@ -193,7 +221,58 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 				indent = g_strdup ("\t");
 			}
 		}
+		else if (ch == ')')
+		{
+			//gtk_text_iter_backward_char (&copy);
+			if (gsi_indenter_utils_find_open_char (&copy,
+							       '(',
+							       ')',
+							       FALSE))
+			{
+				GtkTextIter end = copy;
+
+				g_debug ("open in %i-%i", gtk_text_iter_get_line(&copy),
+					 gtk_text_iter_get_line_offset (&copy));
+				
+				if (gtk_text_iter_backward_char(&end) && move_to_first_non_blank (&end, FALSE))
+				{
+					GtkTextIter start = end;
+					g_debug ("end %c", gtk_text_iter_get_char (&end));
+					gchar *word;
+					move_to_first_blank (&start, FALSE);
+					gtk_text_iter_forward_char (&end);
+					word = gtk_text_iter_get_slice (&start, &end);
+					g_debug ("word: %s(...)", word);
+					
+					if (g_utf8_collate (word, "if") == 0 ||
+					    g_utf8_collate (word, "while") == 0 ||
+					    g_utf8_collate (word, "for") == 0)
+					{
+						indent = get_line_indentation(&copy);
+						if (indent)
+						{
+							gchar *temp = indent;
+							//TODO append the real indent
+							indent = g_strdup_printf ("%s\t", temp);
+							g_free(temp);
+						}
+						else
+						{
+							indent = g_strdup ("\t");
+						}
+					}
+							
+				}
+				if (!indent)
+				{
+					indent = get_line_indentation(&copy);
+				}
+			}
+		}
 	}
+
+	if (!indent)
+		indent = get_line_indentation(&copy);
 	
 	if (!indent)
 		indent = g_strdup ("");
