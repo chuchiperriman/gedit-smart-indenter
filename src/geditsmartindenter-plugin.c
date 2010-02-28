@@ -146,20 +146,20 @@ insert_text_cb (GtkTextBuffer *buffer,
 	
 		while (*relocators != '\0')
 		{
-		  if (c == *relocators)
-		    {
-		      found = TRUE;
-		      break;
-		    }
-		  relocators++;
+			if (c == *relocators)
+			{
+				found = TRUE;
+				break;
+			}
+			relocators++;
 		}
-	
+		
 		if (!found)
-		  return;
-
+			return;
+		
 		
 		if (gsi_indenter_relocate (indenter, view, location, c))
-		  g_debug ("relocated");
+			g_debug ("relocated");
 	}
 	
 	mark = gtk_text_buffer_get_mark (buffer, "insert");
@@ -167,7 +167,6 @@ insert_text_cb (GtkTextBuffer *buffer,
 	gtk_text_buffer_get_iter_at_offset (buffer,
 					    location,
 					    insert_iterator_pos);
-		
 }
 
 static gboolean

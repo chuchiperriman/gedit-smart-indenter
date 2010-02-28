@@ -193,27 +193,20 @@ gboolean
 gsi_indenter_utils_iter_backward_line_not_empty (GtkTextIter *iter)
 {
 	gunichar c;
-	
-	while (gtk_text_iter_backward_line (iter))
-	{
-		while (gtk_text_iter_forward_char (iter))
-		{
-			c = gtk_text_iter_get_char (iter);
 
-			if (c == '\n' || c == '\r')
-			{
-				gtk_text_iter_backward_char (iter);
-				break;
-			}
-			
-			if (c != ' ' && c != '\t')
-			{
-				gtk_text_iter_set_line_offset (iter, 0);
-				return TRUE;
-			}
+	gtk_text_iter_set_line_offset (iter, 0);
+	
+	while (gtk_text_iter_backward_char (iter))
+	{
+		c = gtk_text_iter_get_char (iter);
+
+		if (!g_unichar_isspace (c))
+		{
+			gtk_text_iter_set_line_offset (iter, 0);
+			return TRUE;
 		}
-		
 	}
+		
 	return FALSE;
 }
 

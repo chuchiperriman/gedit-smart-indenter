@@ -487,6 +487,7 @@ static gboolean
 process_multi_comment_real (GsiIndenterCxx *self, GtkTextIter *iter,
 			    gboolean first)
 {
+	g_debug("reaaaaaaaaaaaaal");
 	GtkTextIter copy = *iter;
 	gboolean found;
 	RegexpDef rd_start = {".*\\/\\*(?!.*\\*\\/)", INDENTATION_APPEND, " * ", apply_prev_indent};
