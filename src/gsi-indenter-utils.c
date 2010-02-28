@@ -385,7 +385,6 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	c = gtk_text_iter_get_char (&copy);
 	do
 	{
-		g_debug ("char %c", c);
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */
