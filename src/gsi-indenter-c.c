@@ -233,7 +233,8 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 
 				g_debug ("open in %i-%i", gtk_text_iter_get_line(&copy),
 					 gtk_text_iter_get_line_offset (&copy));
-				
+
+				//Search for an end of sentence (if, while, for...)
 				if (gtk_text_iter_backward_char(&end) && move_to_first_non_blank (&end, FALSE))
 				{
 					GtkTextIter start = end;
@@ -269,11 +270,31 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 				}
 			}
 		}
+		//Are we in something like: if (hello\n ?
+		else if (gsi_indenter_utils_find_open_char (&copy, '(', ')',
+							    TRUE))
+		{
+			gint level;
+			g_debug ("open without close %i-%i", gtk_text_iter_get_line(&copy),
+				 gtk_text_iter_get_line_offset (&copy));
+
+			level = gsi_indenter_utils_get_amount_indents_from_position (view, &copy);
+
+			//level is in ( and the position must be after the (
+			level++;
+			
+			indent = gsi_indenter_utils_get_indent_string_from_indent_level
+   					(GTK_SOURCE_VIEW (view), 
+					 level);
+
+		}
+		else
+		{
+			indent = get_line_indentation(&copy);
+		}
 	}
 
-	if (!indent)
-		indent = get_line_indentation(&copy);
-	
+	//if indent == NULL we must delete the current indentation
 	if (!indent)
 		indent = g_strdup ("");
 	
