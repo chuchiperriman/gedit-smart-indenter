@@ -370,6 +370,7 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 				   gchar close,
 				   gboolean skip_first)
 {
+	GtkSourceBuffer *buffer;
 	GtkTextIter copy;
 	gunichar c;
 	gboolean moved = FALSE;
@@ -378,6 +379,7 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	g_return_val_if_fail (iter != NULL, FALSE);
 	
 	copy = *iter;
+	buffer = GTK_SOURCE_BUFFER(gtk_text_iter_get_buffer(iter));
 	
 	/*
 	 * FIXME: We have to take care of number of lines to go back
@@ -385,6 +387,14 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	c = gtk_text_iter_get_char (&copy);
 	do
 	{
+
+		//TODO Fix single char like '{'
+		
+		if (gtk_source_buffer_iter_has_context_class(buffer, &copy, "string") ||
+		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "comment"))
+		{
+			continue;
+		}
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */

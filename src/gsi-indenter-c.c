@@ -105,6 +105,12 @@ find_char_inline (GtkTextIter *iter,
 }
 
 static gboolean
+is_end_sentence(gunichar ch, gpointer user_data)
+{
+	return ch == ';' || ch == ')' || ch == '{' || ch == ':';
+}
+
+static gboolean
 move_to_first_blank (GtkTextIter *iter, gboolean forward, gboolean in_line)
 {
 	GtkTextIter copy = *iter;
@@ -186,6 +192,28 @@ get_line_indentation (GtkTextIter *iter)
 		return NULL;
 	
 	return g_strdup(gtk_text_iter_get_slice (&start, &end));
+}
+
+static gboolean
+prev_word_is_sentence (GtkTextIter *iter)
+{
+	GtkTextIter end = *iter;
+
+	//Search for an end of sentence (if, while, for...)
+	if (gtk_text_iter_backward_char(&end) && move_to_first_non_blank (&end, FALSE, FALSE))
+	{
+		GtkTextIter start = end;
+		gchar *word;
+
+		move_to_first_blank (&start, FALSE, FALSE);
+		gtk_text_iter_forward_char (&end);
+		word = gtk_text_iter_get_slice (&start, &end);
+					
+		return g_utf8_collate (word, "if") == 0 ||
+			g_utf8_collate (word, "while") == 0 ||
+			g_utf8_collate (word, "for") == 0;
+	}
+	return FALSE;
 }
 
 static gboolean
@@ -280,6 +308,8 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	buffer = gtk_text_view_get_buffer (view);
 	gchar *indent = NULL;
 	gunichar ch;
+	gint level_width = gsi_indenter_utils_view_get_real_indent_width (GTK_SOURCE_VIEW(view));
+	gint level = -1;
 
 	if (process_relocators (view, iter))
 		return TRUE;
@@ -298,86 +328,92 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 		//Block start
 		if (ch == '{')
 		{
-			indent = get_line_indentation(&copy);
-
-			if (indent)
-			{
-				gchar *temp = indent;
-				//TODO append the real indent
-				indent = g_strdup_printf ("%s\t", temp);
-				g_free(temp);
-			}
-			else
-			{
-				indent = g_strdup ("\t");
-			}
+			level = gsi_indenter_utils_get_amount_indents(view, &copy);
+			level += level_width;
 		}
-		else if (ch == ')')
+		
+		if (level == -1 && ch == ')')
 		{
-			//gtk_text_iter_backward_char (&copy);
+			//Previous line indent by default
+			level = gsi_indenter_utils_get_amount_indents(view, &copy);
+			
 			if (gsi_indenter_utils_find_open_char (&copy,
 							       '(',
 							       ')',
 							       FALSE))
 			{
-				GtkTextIter end = copy;
-
-				//Search for an end of sentence (if, while, for...)
-				if (gtk_text_iter_backward_char(&end) && move_to_first_non_blank (&end, FALSE, FALSE))
+				level = gsi_indenter_utils_get_amount_indents(view, &copy);
+				if (prev_word_is_sentence(&copy))
 				{
-					GtkTextIter start = end;
-					gchar *word;
-
-					move_to_first_blank (&start, FALSE, FALSE);
-					gtk_text_iter_forward_char (&end);
-					word = gtk_text_iter_get_slice (&start, &end);
 					
-					if (g_utf8_collate (word, "if") == 0 ||
-					    g_utf8_collate (word, "while") == 0 ||
-					    g_utf8_collate (word, "for") == 0)
+					level += level_width;
+				}
+			}
+		}
+		
+		if (level == -1 && ch == ';')
+		{
+			GtkTextIter prev_iter = copy;
+			gtk_text_iter_backward_char(&prev_iter);
+			//Previous line indent by default
+			level = gsi_indenter_utils_get_amount_indents(view, &copy);
+			
+			if (gtk_text_iter_backward_find_char(&copy,
+							     is_end_sentence,
+							     NULL,
+							     NULL))
+			{
+				/*
+				  Search if we are in:
+				  if (TRUE)
+				      a = 1;
+				  |
+				*/
+				if (gtk_text_iter_get_char(&copy) == ')')
+				{
+					GtkTextIter close_iter = copy;
+					if (gsi_indenter_utils_find_open_char (&copy,
+									       '(',
+									       ')',
+									       FALSE))
 					{
-						indent = get_line_indentation(&copy);
-						if (indent)
+						/*
+						  The prev_iter and close_iter
+						  test something like:
+						  func(param,
+						       param);
+						*/
+						if (prev_word_is_sentence(&copy) ||
+						    gtk_text_iter_equal(&prev_iter, &close_iter))
 						{
-							gchar *temp = indent;
-							//TODO append the real indent
-							indent = g_strdup_printf ("%s\t", temp);
-							g_free(temp);
-						}
-						else
-						{
-							indent = g_strdup ("\t");
+							//Sentence line indent
+							level = gsi_indenter_utils_get_amount_indents(view, &copy);
 						}
 					}
-							
-				}
-				if (!indent)
-				{
-					indent = get_line_indentation(&copy);
 				}
 			}
 		}
 		//Are we in something like: if (hello\n ?
-		else if (gsi_indenter_utils_find_open_char (&copy, '(', ')',
-							    TRUE))
+		if (level == -1 && gsi_indenter_utils_find_open_char (&copy, '(', ')',
+								      TRUE))
 		{
-			gint level;
-
 			level = gsi_indenter_utils_get_amount_indents_from_position (view, &copy);
 
 			//level is in ( and the position must be after the (
 			level++;
-			
-			indent = gsi_indenter_utils_get_indent_string_from_indent_level
-   					(GTK_SOURCE_VIEW (view), 
-					 level);
-
 		}
-		else
+
+		if (level == -1)
 		{
-			indent = get_line_indentation(&copy);
+			level = gsi_indenter_utils_get_amount_indents(view, &copy);
 		}
 	}
+
+	if (level == -1)
+		level = 0;
+
+	indent = gsi_indenter_utils_get_indent_string_from_indent_level	(GTK_SOURCE_VIEW (view), 
+									 level);
 
 	//if indent == NULL we must delete the current indentation
 	if (!indent)
