@@ -3,7 +3,7 @@ dnl Process this file with autoconf to produce a configure script.
 GEDIT_MAJOR=2.20.0
 GEDIT_PLUGINS_MAJOR=2.20.0
 
-AC_INIT(gedit-smart-indenter, 0.1.0, http://github.com/chuchiperriman)
+AC_INIT([gedit-smart-indenter],[0.1.0],[http://github.com/chuchiperriman])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
@@ -11,7 +11,7 @@ AC_PREFIX_PROGRAM([gedit])
 
 AC_SUBST(GEDIT_PLUGINS_MAJOR)
 
-AC_PREREQ(2.59)
+AC_PREREQ(2.65)
 
 AM_INIT_AUTOMAKE([1.8])
 
@@ -23,11 +23,11 @@ AC_DISABLE_STATIC
 
 AC_PATH_PROG(GCONFTOOL, gconftool-2)
 
-AC_PROG_INTLTOOL([0.35.0])
+IT_PROG_INTLTOOL([0.35.0])
 
-AC_PROG_LIBTOOL
+LT_INIT
 
-AC_ISC_POSIX
+AC_SEARCH_LIBS([strerror],[cposix])
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -61,8 +61,7 @@ AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 GNOME_COMPILE_WARNINGS([maximum])
 
 AC_ARG_ENABLE(deprecations,
-              [AC_HELP_STRING([--enable-deprecations],
-                              [warn about deprecated usages [default=no]])],,
+              [AS_HELP_STRING([--enable-deprecations],[warn about deprecated usages [default=no]])],,
               [enable_deprecations=no])
 
 if test "x$enable_deprecations" = "xyes"

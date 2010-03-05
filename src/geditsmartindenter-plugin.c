@@ -25,6 +25,8 @@
 #include "geditsmartindenter-plugin.h"
 #include "gsi-indenters-manager.h"
 #include "gsi-indenter-c.h"
+#include "gsi-indenter-python.h"
+
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
@@ -69,6 +71,12 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 	indenter = gsi_indenter_c_new ();
 	gsi_indenters_manager_register (plugin->priv->manager,
 					"c",
+					indenter);
+	g_object_unref (indenter);
+
+	indenter = gsi_indenter_python_new ();
+	gsi_indenters_manager_register (plugin->priv->manager,
+					"python",
 					indenter);
 	g_object_unref (indenter);
 }
