@@ -1,3 +1,4 @@
+/* -*- mode: c; tab-width: 8; indent-tabs-mode: 1 -*- */
 /* gsi-indenter-python.c */
 
 #include <string.h>

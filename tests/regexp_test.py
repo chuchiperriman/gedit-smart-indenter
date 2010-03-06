@@ -1,3 +1,5 @@
+# -*- mode: python; tab-width: 4; indent-tabs-mode: nil -*- */
+
 #!/usr/bin/env python
 
 import re
