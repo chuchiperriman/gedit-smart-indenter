@@ -7,8 +7,6 @@
 #define GSI_INDENTER_C_GET_PRIVATE(o) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTER_C, GsiIndenterCPrivate))
   
-typedef struct _GsiIndenterCPrivate GsiIndenterCPrivate;
-
 struct _GsiIndenterCPrivate
 {
 	gboolean dummy;
@@ -251,14 +249,10 @@ process_relocators(GtkTextView *view,
 					if (!indent)
 						indent = g_strdup ("");
 	
-					gtk_text_buffer_begin_user_action (buffer);
-
 					gsi_indenter_utils_replace_indentation (buffer,
 										gtk_text_iter_get_line (iter),
 										indent);
 					g_free (indent);
-
-					gtk_text_buffer_end_user_action (buffer);
 
 					return TRUE;
 				}
@@ -280,14 +274,10 @@ process_relocators(GtkTextView *view,
 			if (!indent)
 				indent = g_strdup ("");
 			
-			gtk_text_buffer_begin_user_action (buffer);
-			
 			gsi_indenter_utils_replace_indentation (buffer,
 								gtk_text_iter_get_line (iter),
 								indent);
 			g_free (indent);
-			
-			gtk_text_buffer_end_user_action (buffer);
 			
 			return TRUE;
 		}
@@ -419,19 +409,14 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	if (!indent)
 		indent = g_strdup ("");
 	
-	gtk_text_buffer_begin_user_action (buffer);
-
 	gsi_indenter_utils_replace_indentation (buffer,
 						gtk_text_iter_get_line (iter),
 						indent);
 	g_free (indent);
 
-	gtk_text_buffer_end_user_action (buffer);
-	
 	
 /*	if (res)
 	{
-		gtk_text_buffer_begin_user_action (buffer);
 		res = FALSE;
 		if (idata.level >= 0)
 		{
@@ -461,7 +446,6 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 			g_free (idata.append);
 			res = TRUE;
 		}
-		gtk_text_buffer_end_user_action (buffer);
 	}
 */
 	return res;
@@ -513,6 +497,7 @@ gsi_indenter_c_class_init (GsiIndenterCClass *klass)
 static void
 gsi_indenter_c_init (GsiIndenterC *self)
 {
+	self->priv = GSI_INDENTER_C_GET_PRIVATE (self);
 }
 
 GsiIndenter*

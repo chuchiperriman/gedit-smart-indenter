@@ -391,7 +391,8 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 		//TODO Fix single char like '{'
 		
 		if (gtk_source_buffer_iter_has_context_class(buffer, &copy, "string") ||
-		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "comment"))
+		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "comment") ||
+		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "char"))
 		{
 			continue;
 		}

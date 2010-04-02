@@ -29,8 +29,13 @@ G_BEGIN_DECLS
   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
   GSI_TYPE_INDENTER_C, GsiIndenterCClass))
 
+/* Private structure type */
+typedef struct _GsiIndenterCPrivate GsiIndenterCPrivate;
+
+
 typedef struct {
-  GObject parent;
+	GObject parent;
+	GsiIndenterCPrivate *priv;
 } GsiIndenterC;
 
 typedef struct {

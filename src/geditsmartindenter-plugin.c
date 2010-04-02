@@ -143,7 +143,9 @@ insert_text_cb (GtkTextBuffer *buffer,
 	c = text[len-1];
 	if (c == '\n')
 	{
+		gtk_text_buffer_begin_user_action (buffer);
 		gsi_indenter_indent_line (indenter, view, location);
+		gtk_text_buffer_end_user_action (buffer);
 	}
 	else
 	{
@@ -165,9 +167,10 @@ insert_text_cb (GtkTextBuffer *buffer,
 		if (!found)
 			return;
 		
-		
+		gtk_text_buffer_begin_user_action (buffer);
 		if (gsi_indenter_relocate (indenter, view, location, c))
 			g_debug ("relocated");
+		gtk_text_buffer_end_user_action (buffer);
 	}
 	
 	mark = gtk_text_buffer_get_mark (buffer, "insert");
@@ -202,14 +205,18 @@ key_press_event_cb (GtkTextView *view,
 		
 		if (gtk_text_buffer_get_selection_bounds (buffer, &start, &end))
 		{
+			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_indent_region (indenter, view, &start, &end);
+			gtk_text_buffer_end_user_action (buffer);
 		}
 		else
 		{
 			gtk_text_buffer_get_iter_at_mark (buffer,
 							  &start,
 							  gtk_text_buffer_get_insert (buffer));
+			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_indent_line (indenter, view, &start);
+			gtk_text_buffer_end_user_action (buffer);
 		}
 		
 		g_signal_handlers_unblock_by_func (buffer, insert_text_cb, self);
