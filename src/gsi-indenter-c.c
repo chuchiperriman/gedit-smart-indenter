@@ -20,88 +20,6 @@ G_DEFINE_TYPE_WITH_CODE (GsiIndenterC,
                          G_IMPLEMENT_INTERFACE (GSI_TYPE_INDENTER,
                                                 gsi_indenter_iface_init))
 
-static const gchar * regexes[] =
-{
-	"^\\s*(if|while|else if|for|switch)\\s*\\(.*\\)\\s*$",
-	"^\\s*(else|do)\\s*$",
-	NULL
-};
-
-static const gchar * case_regexes[] =
-{
-	"^\\s*(default|case [^ ]*)\\s*:\\s*(if|while|else if|for|switch)\\s*\\(.*\\)\\s*$",
-	"^\\s*(default|case [^ ]*)\\s*:\\s*do\\s*$",
-	NULL
-};
-
-static gboolean
-match_regexes (GtkTextIter *iter,
-	       const gchar * const *regexes)
-{
-	gint i = 0;
-	gboolean match = FALSE;
-	gchar *string;
-	GtkTextIter start;
-	
-	start = *iter;
-	
-	gsi_indenter_utils_find_open_char (&start, '(', ')', FALSE);
-	
-	gtk_text_iter_set_line_offset (&start, 0);
-	gtk_text_iter_forward_char (iter);
-	
-	string = gtk_text_iter_get_text (&start, iter);
-	gtk_text_iter_backward_char (iter);
-	
-	while (regexes[i] != NULL)
-	{
-		GRegex *regex;
-		GMatchInfo *match_info;
-		
-		regex = g_regex_new (regexes[i], G_REGEX_DOTALL, 0, NULL);
-		g_regex_match (regex, string, 0, &match_info);
-		
-		if (g_match_info_matches (match_info))
-			match = TRUE;
-		
-		g_match_info_free (match_info);
-		g_regex_unref (regex);
-		
-		if (match)
-		{
-			break;
-		}
-		i++;
-	}
-	
-	g_free (string);
-	
-	return match;
-}
-
-static gboolean
-find_char_inline (GtkTextIter *iter,
-		  gunichar c)
-{
-	gunichar f;
-	gboolean found = FALSE;
-	
-	f = gtk_text_iter_get_char (iter);
-	
-	while (f != c && gtk_text_iter_get_line_offset (iter) != 0)
-	{
-		gtk_text_iter_backward_char (iter);
-		f = gtk_text_iter_get_char (iter);
-	}
-	
-	if (f == c)
-	{
-		found = TRUE;
-	}
-	
-	return found;
-}
-
 static gboolean
 is_end_sentence(gunichar ch, gpointer user_data)
 {
@@ -414,40 +332,6 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 						indent);
 	g_free (indent);
 
-	
-/*	if (res)
-	{
-		res = FALSE;
-		if (idata.level >= 0)
-		{
-			indent = gsi_indenter_utils_get_indent_string_from_indent_level
-   					(GTK_SOURCE_VIEW (view), 
-					 idata.level);
-			if (indent)
-			{
-				gsi_indenter_utils_replace_indentation (buffer,
-									gtk_text_iter_get_line (iter),
-									indent);
-				g_free (indent);
-			}
-			else
-			{
-				gsi_indenter_utils_replace_indentation (buffer,
-									gtk_text_iter_get_line (iter),
-									"");
-			}
-			res = TRUE;
-		}
-		if (idata.append != NULL)
-		{
-			gtk_text_buffer_insert_at_cursor (buffer,
-							  idata.append,
-							  -1);
-			g_free (idata.append);
-			res = TRUE;
-		}
-	}
-*/
 	return res;
 }
 
