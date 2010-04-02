@@ -225,11 +225,12 @@ gsi_indenter_utils_is_empty_line (GtkTextBuffer	*buffer,
 
 void
 gsi_indenter_utils_replace_indentation (GtkTextBuffer	*buffer,
-				       gint		 line,
-				       gchar		*indentation)
+					gint		 line,
+					gchar		*indentation)
 {
 	GtkTextIter start, end;
-
+	gchar *current = NULL;
+	
 	gtk_text_buffer_get_iter_at_line (buffer,
 					  &start,
 					  line);
@@ -238,12 +239,17 @@ gsi_indenter_utils_replace_indentation (GtkTextBuffer	*buffer,
 	
 	if (gsi_indenter_utils_move_to_no_space (&end, 1, FALSE))
 	{
-		gtk_text_buffer_delete (buffer, &start, &end);
-		if (indentation)
+		current = gtk_text_buffer_get_text (buffer, &start, &end, TRUE);
+		if (g_utf8_collate(current, indentation) != 0)
 		{
-			gtk_text_buffer_get_iter_at_line (buffer, &start, line);
-			gtk_text_buffer_insert (buffer, &start, indentation, -1);
+			gtk_text_buffer_delete (buffer, &start, &end);
+			if (indentation)
+			{
+				gtk_text_buffer_get_iter_at_line (buffer, &start, line);
+				gtk_text_buffer_insert (buffer, &start, indentation, -1);
+			}
 		}
+		g_free(current);
 	}
 }
 

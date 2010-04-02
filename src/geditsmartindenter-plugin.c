@@ -47,6 +47,7 @@
 struct _GeditsmartindenterPluginPrivate
 {
 	GsiIndentersManager *manager;
+	GdkCursor *busy_cursor;
 };
 
 typedef struct{
@@ -67,6 +68,7 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 			     "GeditsmartindenterPlugin initializing");
 
 	plugin->priv->manager = gsi_indenters_manager_new ();
+	plugin->priv->busy_cursor = gdk_cursor_new (GDK_WATCH);
 	
 	indenter = gsi_indenter_c_new ();
 	gsi_indenters_manager_register (plugin->priv->manager,
@@ -90,6 +92,8 @@ geditsmartindenter_plugin_finalize (GObject *object)
 	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (object);
 	
 	g_object_unref (self->priv->manager);
+	
+	gdk_cursor_unref (self->priv->busy_cursor);
 	
 	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
 }
@@ -205,9 +209,15 @@ key_press_event_cb (GtkTextView *view,
 		
 		if (gtk_text_buffer_get_selection_bounds (buffer, &start, &end))
 		{
+			gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (view)),
+					       self->priv->busy_cursor);
+			
 			gtk_text_buffer_begin_user_action (buffer);
 			gsi_indenter_indent_region (indenter, view, &start, &end);
 			gtk_text_buffer_end_user_action (buffer);
+			
+			gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (view)),
+					       NULL);
 		}
 		else
 		{
