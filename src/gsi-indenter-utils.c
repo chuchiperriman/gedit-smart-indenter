@@ -15,7 +15,7 @@ gsi_indenter_utils_view_get_real_indent_width (GtkSourceView *view)
 
 gint
 gsi_indenter_utils_get_amount_indents (GtkTextView *view,
-					GtkTextIter *cur)
+				       GtkTextIter *cur)
 {
 	GtkTextIter start;
 	gunichar c;

@@ -9,7 +9,7 @@
   
 struct _GsiIndenterCPrivate
 {
-	gboolean dummy;
+	gfloat bracket_offset;
 };
 
 static void gsi_indenter_iface_init (gpointer g_iface, gpointer iface_data);
@@ -133,13 +133,17 @@ prev_word_is_sentence (GtkTextIter *iter)
 }
 
 static gboolean
-process_relocators(GtkTextView *view,
+process_relocators(GsiIndenterC *self,
+		   GtkTextView *view,
 		   GtkTextIter *iter)
 {
 	GtkTextIter copy = *iter;
 	gunichar ch;
 	GtkTextBuffer *buffer;
+	gint level_width;
 	
+	level_width = gsi_indenter_utils_view_get_real_indent_width (GTK_SOURCE_VIEW(view));
+
 	buffer = gtk_text_view_get_buffer (view);
 
 	gtk_text_iter_set_line_offset (&copy, 0);
@@ -169,10 +173,16 @@ process_relocators(GtkTextView *view,
 								       ')',
 								       FALSE))
 				{
+					gint level;
 					gchar *indent;
 
-					indent = get_line_indentation(&copy);
+					level = gsi_indenter_utils_get_amount_indents (view,
+										       &copy);
+					
+					level += level_width * self->priv->bracket_offset;
 
+					indent = gsi_indenter_utils_get_indent_string_from_indent_level	(GTK_SOURCE_VIEW (view), 
+									 level);
 					if (!indent)
 						indent = g_strdup ("");
 	
@@ -182,6 +192,34 @@ process_relocators(GtkTextView *view,
 					g_free (indent);
 
 					return TRUE;
+				}
+			}
+			else if (ch == 'o')
+			{
+				if (gtk_text_iter_backward_char (&copy))
+				{
+				    	gint level;
+					gchar *indent;
+					gchar och = gtk_text_iter_get_char (&copy);
+					if (och == 'd')
+					{
+						level = gsi_indenter_utils_get_amount_indents (view,
+											       &copy);
+					
+						level += level_width * self->priv->bracket_offset;
+
+						indent = gsi_indenter_utils_get_indent_string_from_indent_level	(GTK_SOURCE_VIEW (view), 
+														 level);
+						if (!indent)
+							indent = g_strdup ("");
+	
+						gsi_indenter_utils_replace_indentation (buffer,
+											gtk_text_iter_get_line (iter),
+											indent);
+						g_free (indent);
+
+						return TRUE;
+					}
 				}
 			}
 		}
@@ -214,7 +252,7 @@ process_relocators(GtkTextView *view,
 }
 
 static gboolean
-gsi_indenter_indent_line_real (GsiIndenter *indenter,
+gsi_indenter_indent_line_real (GsiIndenterC *self,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
@@ -227,7 +265,7 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 	gint level_width = gsi_indenter_utils_view_get_real_indent_width (GTK_SOURCE_VIEW(view));
 	gint level = -1;
 
-	if (process_relocators (view, iter))
+	if (process_relocators (self, view, iter))
 		return TRUE;
 	
 	if (!gsi_indenter_utils_iter_backward_line_not_empty (&copy))
@@ -245,9 +283,13 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 		if (ch == '{')
 		{
 			level = gsi_indenter_utils_get_amount_indents(view, &copy);
-			level += level_width;
+			level += level_width * self->priv->bracket_offset;
 		}
-		
+		if (level == -1 && ch == '}')
+		{
+			level = gsi_indenter_utils_get_amount_indents(view, &copy);
+			level -= level_width * self->priv->bracket_offset;
+		}
 		if (level == -1 && ch == ')')
 		{
 			//Previous line indent by default
@@ -261,7 +303,6 @@ gsi_indenter_indent_line_real (GsiIndenter *indenter,
 				level = gsi_indenter_utils_get_amount_indents(view, &copy);
 				if (prev_word_is_sentence(&copy))
 				{
-					
 					level += level_width;
 				}
 			}
@@ -348,7 +389,7 @@ gsi_indenter_indent_line_impl (GsiIndenter *indenter,
 			       GtkTextView *view,
 			       GtkTextIter *iter)
 {
-	gsi_indenter_indent_line_real (indenter, view, iter);
+	gsi_indenter_indent_line_real (GSI_INDENTER_C (indenter), view, iter);
 }
 
 static const gchar*
@@ -357,6 +398,20 @@ gsi_indenter_get_relocators_impl (GsiIndenter	*self,
 {
 	//return "{}:#";
 	return "{}#";
+}
+
+gfloat
+gsi_indenter_c_get_bracket (GsiIndenterC *self)
+{
+	return self->priv->bracket_offset;
+}
+
+void
+gsi_indenter_c_set_bracket (GsiIndenterC *self,
+			    gfloat offset)
+{
+	g_return_if_fail (offset >= 0 && offset <=1);
+	self->priv->bracket_offset = offset;
 }
 
 static void
@@ -390,6 +445,7 @@ static void
 gsi_indenter_c_init (GsiIndenterC *self)
 {
 	self->priv = GSI_INDENTER_C_GET_PRIVATE (self);
+	self->priv->bracket_offset = 0.5;
 }
 
 GsiIndenter*
