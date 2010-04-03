@@ -138,6 +138,9 @@ process_relocators(GtkTextView *view,
 {
 	GtkTextIter copy = *iter;
 	gunichar ch;
+	GtkTextBuffer *buffer;
+	
+	buffer = gtk_text_view_get_buffer (view);
 
 	gtk_text_iter_set_line_offset (&copy, 0);
 	if (!move_to_first_non_blank (&copy, TRUE, TRUE))
@@ -145,7 +148,14 @@ process_relocators(GtkTextView *view,
 
 	ch = gtk_text_iter_get_char (&copy);
 
-	if (ch == '{')
+	if (ch == '#')
+	{
+		gsi_indenter_utils_replace_indentation (buffer,
+							gtk_text_iter_get_line (iter),
+							"");
+		return TRUE;
+	}
+	else if (ch == '{')
 	{
 		gtk_text_iter_backward_char (&copy);
 		if (move_to_first_non_blank (&copy, FALSE, FALSE))
@@ -160,7 +170,6 @@ process_relocators(GtkTextView *view,
 								       FALSE))
 				{
 					gchar *indent;
-					GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 
 					indent = get_line_indentation(&copy);
 
@@ -185,7 +194,6 @@ process_relocators(GtkTextView *view,
 						       FALSE))
 		{
 			gchar *indent;
-			GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 			
 			indent = get_line_indentation(&copy);
 			
@@ -348,7 +356,7 @@ gsi_indenter_get_relocators_impl (GsiIndenter	*self,
 			     	  GtkTextView	*view)
 {
 	//return "{}:#";
-	return "{}";
+	return "{}#";
 }
 
 static void
