@@ -371,6 +371,27 @@ gsi_indenter_utils_move_to_no_preprocessor (GtkTextIter *iter)
 }
 
 gboolean
+gsi_utils_char_is_scaped (GtkTextIter *iter)
+{
+	GtkTextIter copy = *iter;
+	gchar *text;
+	
+	if (!gtk_text_iter_backward_char (&copy))
+		return FALSE;
+	
+	text = gtk_text_iter_get_text (&copy, iter);
+	
+	if (text[0] != '\\')
+		return FALSE;
+	
+	//Check if: aaa\\n
+	if (gsi_utils_char_is_scaped (&copy))
+		return FALSE;
+	
+	return TRUE;
+}
+
+gboolean
 gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 				   gchar open,
 				   gchar close,
@@ -390,18 +411,58 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	/*
 	 * FIXME: We have to take care of number of lines to go back
 	 */
-	c = gtk_text_iter_get_char (&copy);
 	do
 	{
+		c = gtk_text_iter_get_char (&copy);
 
-		//TODO Fix single char like '{'
+		//Check single quote like '\\'
+		if (c == '\'')
+		{
+			if (!gtk_text_iter_backward_char (&copy))
+				return FALSE;
+			
+			//Move to the char before the 'a' or '\\'
+			if (gsi_utils_char_is_scaped (&copy))
+				gtk_text_iter_backward_chars (&copy, 3);
+			else
+				gtk_text_iter_backward_chars (&copy, 2);
+			
+			c = gtk_text_iter_get_char (&copy);
+		}
 		
+		if (c == '"')
+		{
+			GtkTextIter backup = copy;
+			//Skiping "aaa\"bbb"
+			do
+			{
+				if (!gtk_text_iter_backward_char (&copy))
+					return FALSE;
+			
+				if (gsi_utils_char_is_scaped (&copy))
+					gtk_text_iter_backward_char (&copy);
+				
+				c = gtk_text_iter_get_char (&copy);
+				
+				if (c == '\n')
+				{
+					//There is not the open quote, ignore all
+					copy = backup;
+					break;
+				}
+				
+			} while(c != '"');
+			
+		}
+		
+		/*
 		if (gtk_source_buffer_iter_has_context_class(buffer, &copy, "string") ||
 		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "comment") ||
 		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "char"))
 		{
 			continue;
 		}
+		*/
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */
@@ -423,8 +484,7 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
                         break;
                 }
 	}
-	while (gtk_text_iter_backward_char (&copy) &&
-	       (c = gtk_text_iter_get_char (&copy)));
+	while (gtk_text_iter_backward_char (&copy));
 	
 	return moved;
 }
