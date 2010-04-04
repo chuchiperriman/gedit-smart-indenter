@@ -283,7 +283,7 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 		if (ch == '{')
 		{
 			level = gsi_indenter_utils_get_amount_indents(view, &copy);
-			level += level_width * self->priv->bracket_offset;
+			level += level_width * (1 - self->priv->bracket_offset);
 		}
 		if (level == -1 && ch == '}')
 		{
@@ -445,7 +445,7 @@ static void
 gsi_indenter_c_init (GsiIndenterC *self)
 {
 	self->priv = GSI_INDENTER_C_GET_PRIVATE (self);
-	self->priv->bracket_offset = 0.5;
+	self->priv->bracket_offset = 0;
 }
 
 GsiIndenter*
