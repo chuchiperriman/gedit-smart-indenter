@@ -131,6 +131,7 @@ gsi_indenter_utils_get_line_indentation (GtkTextBuffer	*buffer,
 		line++;
 	}
 	
+	
 	return indentation;
 }
 

@@ -52,6 +52,7 @@ move_to_first_blank (GtkTextIter *iter, gboolean forward, gboolean in_line)
 
 	return FALSE;
 	
+	
 }
 
 static gboolean
