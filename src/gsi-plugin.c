@@ -1,5 +1,5 @@
 /*
- * geditsmartindenter-plugin.c - Type here a short description of your plugin
+ * gsi-plugin.c - Type here a short description of your plugin
  *
  * Copyright (C) 2009 - Jesús Barbero Rodríguez
  *
@@ -22,7 +22,7 @@
 #include <config.h>
 #endif
 
-#include "geditsmartindenter-plugin.h"
+#include "gsi-plugin.h"
 #include "gsi-indenters-manager.h"
 #include "gsi-indenter-c.h"
 #include "gsi-indenter-python.h"
@@ -30,42 +30,59 @@
 
 #include <glib/gi18n-lib.h>
 #include <gedit/gedit-debug.h>
+#include <gedit/gedit-window.h>
+#include <gedit/gedit-window-activatable.h>
+#include <gedit/gedit-document.h>
 #include <gdk/gdkkeysyms.h>
 #include <gtksourceview/gtksourceview.h>
 
 
-#define WINDOW_DATA_KEY	"GeditsmartindenterPluginWindowData"
-#define VIEW_KEY	"GeditsmartindenterPluginView"
-#define ENABLED_KEY     "GeditsmartindenterPluginEnabled"
+#define WINDOW_DATA_KEY	"GsiPluginWindowData"
+#define VIEW_KEY	"GsiPluginView"
+#define ENABLED_KEY     "GsiPluginEnabled"
 
-#define GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE(object)	(G_TYPE_INSTANCE_GET_PRIVATE ((object), TYPE_GEDITSMARTINDENTER_PLUGIN, GeditsmartindenterPluginPrivate))
+#define GSI_PLUGIN_GET_PRIVATE(object)	(G_TYPE_INSTANCE_GET_PRIVATE ((object), TYPE_GSI_PLUGIN, GsiPluginPrivate))
 
 #define get_window_data(window) ((WindowData *) (g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY)))
 #define get_view(buffer) ((GtkTextView *) (g_object_get_data (G_OBJECT (buffer), VIEW_KEY)))
 #define is_enabled(view) ((g_object_get_data (G_OBJECT (view), ENABLED_KEY)) != NULL)
 
-struct _GeditsmartindenterPluginPrivate
+struct _GsiPluginPrivate
 {
+	GeditWindow *window;
 	GsiIndentersManager *manager;
 	GdkCursor *busy_cursor;
 };
 
+enum
+{
+	PROP_0,
+	PROP_WINDOW
+};
+
 typedef struct{
-	GeditWindow			*window;
-	GeditsmartindenterPlugin	*plugin;
+	GeditWindow	*window;
+	GsiPlugin	*plugin;
 } WindowData;
 
-GEDIT_PLUGIN_REGISTER_TYPE (GeditsmartindenterPlugin, geditsmartindenter_plugin)
+static void gedit_window_activatable_iface_init (GeditWindowActivatableInterface *iface);
+
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (GsiPlugin,
+				gsi_plugin,
+				PEAS_TYPE_EXTENSION_BASE,
+				0,
+				G_IMPLEMENT_INTERFACE_DYNAMIC (GEDIT_TYPE_WINDOW_ACTIVATABLE,
+							       gedit_window_activatable_iface_init))
 
 static void
-geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
+gsi_plugin_init (GsiPlugin *plugin)
 {
 	GsiIndenter *indenter;
 	
-	plugin->priv = GEDITSMARTINDENTER_PLUGIN_GET_PRIVATE (plugin);
+	plugin->priv = GSI_PLUGIN_GET_PRIVATE (plugin);
 
 	gedit_debug_message (DEBUG_PLUGINS,
-			     "GeditsmartindenterPlugin initializing");
+			     "GsiPlugin initializing");
 
 	plugin->priv->manager = gsi_indenters_manager_new ();
 	plugin->priv->busy_cursor = gdk_cursor_new (GDK_WATCH);
@@ -84,18 +101,69 @@ geditsmartindenter_plugin_init (GeditsmartindenterPlugin *plugin)
 }
 
 static void
-geditsmartindenter_plugin_finalize (GObject *object)
+gsi_plugin_dispose (GObject *object)
 {
 	gedit_debug_message (DEBUG_PLUGINS,
-			     "GeditsmartindenterPlugin finalizing");
+			     "GsiPlugin finalizing");
 
-	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (object);
+	GsiPlugin *self = GSI_PLUGIN (object);
 	
 	g_object_unref (self->priv->manager);
 	
 	gdk_cursor_unref (self->priv->busy_cursor);
 	
-	G_OBJECT_CLASS (geditsmartindenter_plugin_parent_class)->finalize (object);
+	if (self->priv->window != NULL)
+	{
+		g_object_unref (self->priv->window);
+		self->priv->window = NULL;
+	}
+	
+	G_OBJECT_CLASS (gsi_plugin_parent_class)->dispose (object);
+}
+
+static void
+gsi_plugin_class_finalize (GsiPluginClass *klass)
+{
+}
+
+static void
+gsi_plugin_set_property (GObject      *object,
+                                     guint         prop_id,
+                                     const GValue *value,
+                                     GParamSpec   *pspec)
+{
+	GsiPlugin *plugin = GSI_PLUGIN (object);
+
+	switch (prop_id)
+	{
+		case PROP_WINDOW:
+			plugin->priv->window = GEDIT_WINDOW (g_value_dup_object (value));
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+			break;
+	}
+}
+
+static void
+gsi_plugin_get_property (GObject    *object,
+                                     guint       prop_id,
+                                     GValue     *value,
+                                     GParamSpec *pspec)
+{
+	GsiPlugin *plugin = GSI_PLUGIN (object);
+
+	switch (prop_id)
+	{
+		case PROP_WINDOW:
+			g_value_set_object (value, plugin->priv->window);
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+			break;
+	}
 }
 
 static void
@@ -111,7 +179,7 @@ insert_text_cb (GtkTextBuffer *buffer,
 		GtkTextIter   *location,
 		gchar         *text,
 		gint           len,
-		GeditsmartindenterPlugin *self)
+		GsiPlugin *self)
 {
 	GsiIndenter *indenter;
 	GtkTextView *view;
@@ -187,9 +255,9 @@ insert_text_cb (GtkTextBuffer *buffer,
 static gboolean
 key_press_event_cb (GtkTextView *view,
 		    GdkEventKey *event,
-		    GeditsmartindenterPlugin *self)
+		    GsiPlugin *self)
 {
-	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_j)
+	if ((event->state & GDK_CONTROL_MASK) && event->keyval == GDK_KEY_j)
 	{
 		GtkTextBuffer *buffer = gtk_text_view_get_buffer (view);
 		GtkTextIter start, end;
@@ -236,7 +304,7 @@ key_press_event_cb (GtkTextView *view,
 
 static void
 paste_clipboard_cb (GtkTextView *view,
-		    GeditsmartindenterPlugin *self)
+		    GsiPlugin *self)
 {
 	g_signal_handlers_block_by_func (gtk_text_view_get_buffer (view),
 					 insert_text_cb,
@@ -246,7 +314,7 @@ paste_clipboard_cb (GtkTextView *view,
 static void
 paste_done_cb (GtkTextBuffer *buffer,
 	       GtkClipboard *clip,
-	       GeditsmartindenterPlugin *self)
+	       GsiPlugin *self)
 {
 	g_signal_handlers_unblock_by_func (buffer,
 					   insert_text_cb,
@@ -255,7 +323,7 @@ paste_done_cb (GtkTextBuffer *buffer,
 
 static void
 undo_cb (GtkTextView *view,
-	 GeditsmartindenterPlugin *self)
+	 GsiPlugin *self)
 {
 	g_signal_handlers_block_by_func (gtk_text_view_get_buffer (view),
 					 insert_text_cb,
@@ -264,7 +332,7 @@ undo_cb (GtkTextView *view,
 
 static void
 undo_after_cb (GtkTextView *view,
-	       GeditsmartindenterPlugin *self)
+	       GsiPlugin *self)
 {
 	g_signal_handlers_unblock_by_func (gtk_text_view_get_buffer (view),
 					   insert_text_cb,
@@ -272,7 +340,7 @@ undo_after_cb (GtkTextView *view,
 }
 
 static void
-document_enable (GeditsmartindenterPlugin *self, GeditView *view)
+document_enable (GsiPlugin *self, GeditView *view)
 {
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
 	g_object_set_data (G_OBJECT (buffer), VIEW_KEY, view);
@@ -321,7 +389,7 @@ document_enable (GeditsmartindenterPlugin *self, GeditView *view)
 static void
 tab_changed_cb (GeditWindow *geditwindow,
                 GeditTab    *tab,
-                GeditsmartindenterPlugin   *self)
+                GsiPlugin   *self)
 {
         GeditView *view = gedit_tab_get_view (tab);
 	
@@ -331,10 +399,9 @@ tab_changed_cb (GeditWindow *geditwindow,
 
 
 static void
-impl_activate (GeditPlugin *plugin,
-	       GeditWindow *window)
+impl_activate (GeditWindowActivatable *activatable)
 {
-	GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);
+	GsiPlugin *self = GSI_PLUGIN (activatable);
 	WindowData *wdata;
 	GList *views, *l;
 	GeditView *view;
@@ -343,14 +410,14 @@ impl_activate (GeditPlugin *plugin,
 	
 	wdata = g_slice_new (WindowData);
 	wdata->plugin = self;
-	wdata->window = window;
+	wdata->window = self->priv->window;
 
-	g_object_set_data_full (G_OBJECT (window),
+	g_object_set_data_full (G_OBJECT (self->priv->window),
                                 WINDOW_DATA_KEY,
                                 wdata,
                                 (GDestroyNotify) window_data_free);
 
-	g_signal_connect_after (window, "active-tab-changed",
+	g_signal_connect_after (self->priv->window, "active-tab-changed",
 				G_CALLBACK (tab_changed_cb),
 				self);
 
@@ -360,7 +427,7 @@ impl_activate (GeditPlugin *plugin,
                           self);
 	*/
 
-	views = gedit_window_get_views (window);
+	views = gedit_window_get_views (self->priv->window);
 	for (l = views; l != NULL; l = g_list_next (l))
 	{
 		view = GEDIT_VIEW (l->data);
@@ -370,35 +437,43 @@ impl_activate (GeditPlugin *plugin,
 }
 
 static void
-impl_deactivate (GeditPlugin *plugin,
-		 GeditWindow *window)
+impl_deactivate (GeditWindowActivatable *activatable)
 {
-	/*GeditsmartindenterPlugin *self = GEDITSMARTINDENTER_PLUGIN (plugin);*/
+	GsiPlugin *self = GSI_PLUGIN (activatable);
 	gedit_debug (DEBUG_PLUGINS);
 
-	g_object_set_data (G_OBJECT (window), WINDOW_DATA_KEY, NULL);
+	g_object_set_data (G_OBJECT (self->priv->window), WINDOW_DATA_KEY, NULL);
 }
 
 static void
-impl_update_ui (GeditPlugin *plugin,
-		GeditWindow *window)
-{
-	gedit_debug (DEBUG_PLUGINS);
-}
-
-
-static void
-geditsmartindenter_plugin_class_init (GeditsmartindenterPluginClass *klass)
+gsi_plugin_class_init (GsiPluginClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	GeditPluginClass *plugin_class = GEDIT_PLUGIN_CLASS (klass);
 
-	object_class->finalize = geditsmartindenter_plugin_finalize;
-
-	plugin_class->activate = impl_activate;
-	plugin_class->deactivate = impl_deactivate;
-	plugin_class->update_ui = impl_update_ui;
+	object_class->dispose = gsi_plugin_dispose;
+	object_class->set_property = gsi_plugin_set_property;
+	object_class->get_property = gsi_plugin_get_property;
+	
+	g_object_class_override_property (object_class, PROP_WINDOW, "window");
 
 	g_type_class_add_private (object_class, 
-				  sizeof (GeditsmartindenterPluginPrivate));
+				  sizeof (GsiPluginPrivate));
 }
+
+static void
+gedit_window_activatable_iface_init (GeditWindowActivatableInterface *iface)
+{
+	iface->activate = impl_activate;
+	iface->deactivate = impl_deactivate;
+}
+
+G_MODULE_EXPORT void
+peas_register_types (PeasObjectModule *module)
+{
+	gsi_plugin_register_type (G_TYPE_MODULE (module));
+
+	peas_object_module_register_extension_type (module,
+						    GEDIT_TYPE_WINDOW_ACTIVATABLE,
+						    TYPE_GSI_PLUGIN);
+}
+

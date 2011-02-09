@@ -1,0 +1,8 @@
+[Plugin]
+Module=smartindenter
+IAge=2
+_Name=Smart indenter
+_Description=Add smart indent support to gedit
+Authors=Jesús Barbero Rodríguez <chuchiperriman@gmail.com>
+Copyright=Copyright © 2009-2011 Jesús Barbero Rodríguez
+Website=http://github.com/chuchiperriman/gedit-smart-indenter

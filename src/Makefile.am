@@ -1,19 +1,18 @@
 # gedit-smart-indenter
-
-plugindir = $(libdir)/gedit-2/plugins
+plugindir = $(GEDIT_PLUGINS_LIBS_DIR)
+supportdir = $(GEDIT_PLUGINS_DATA_DIR)/smartindenter
 
 INCLUDES = \
 	-I$(top_srcdir) 						\
 	$(GEDIT_CFLAGS) 						\
 	$(WARN_CFLAGS)							\
-	$(DISABLE_DEPRECATED_CFLAGS)					\
-	-DGEDIT_LOCALEDIR=\""$(prefix)/$(DATADIRNAME)/locale"\"
+	$(DISABLE_DEPRECATED_CFLAGS)
 
-plugin_LTLIBRARIES = libgeditsmartindenter.la
+plugin_LTLIBRARIES = libsmartindenter.la
 
-libgeditsmartindenter_la_SOURCES = \
-	geditsmartindenter-plugin.h	\
-	geditsmartindenter-plugin.c	\
+libsmartindenter_la_SOURCES = \
+	gsi-plugin.h	\
+	gsi-plugin.c	\
 	gsi-indenter.h			\
 	gsi-indenter.c			\
 	gsi-indenter-utils.h		\
@@ -27,18 +26,23 @@ libgeditsmartindenter_la_SOURCES = \
 	gsi-indenter-python.h		\
 	gsi-indenter-python.c
 
-libgeditsmartindenter_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
+libsmartindenter_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
+libsmartindenter_la_LIBADD = $(GEDIT_LIBS)
 
-plugin_in_files = geditsmartindenter.gedit-plugin.desktop.in
+support_DATA =
 
-%.gedit-plugin: %.gedit-plugin.desktop.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
+# Plugin Info
+plugin_in_files = smartindenter.plugin.desktop.in
 
-plugin_DATA = $(plugin_in_files:.gedit-plugin.desktop.in=.gedit-plugin)
+%.plugin: %.plugin.desktop.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
 
-EXTRA_DIST = $(plugin_in_files)
+BUILDFILES = $(plugin_in_files:.plugin.desktop.in=.plugin)
 
-CLEANFILES = $(plugin_DATA)
+plugin_DATA = $(BUILDFILES)
 
-DISTCLEANFILES = $(plugin_DATA)
+EXTRA_DIST = $(plugin_in_files) $(support_DATA)
+
+CLEANFILES = $(BUILDFILES)
+DISTCLEANFILES = $($(support_DATA))
 
 -include $(top_srcdir)/git.mk

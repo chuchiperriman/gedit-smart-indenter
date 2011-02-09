@@ -1,33 +1,29 @@
 dnl Process this file with autoconf to produce a configure script.
 
-GEDIT_MAJOR=2.20.0
-GEDIT_PLUGINS_MAJOR=2.20.0
+AC_PREREQ(2.59)
 
-AC_INIT([gedit-smart-indenter],[0.1.0],[http://github.com/chuchiperriman])
+m4_define(smartindenter_plugin_major_version,  2)
+m4_define(smartindenter_plugin_minor_version, 90)
+m4_define(smartindenter_plugin_micro_version,  0)
+m4_define(smartindenter_plugin_version, smartindenter_plugin_major_version.smartindenter_plugin_minor_version.smartindenter_plugin_micro_version)
+
+AC_INIT(gedit-smartindenter-plugin,smartindenter_plugin_version)
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
 AC_PREFIX_PROGRAM([gedit])
 
-AC_SUBST(GEDIT_PLUGINS_MAJOR)
-
-AC_PREREQ(2.63)
-
-AM_INIT_AUTOMAKE([1.8])
-
-GNOME_DOC_INIT
+AM_INIT_AUTOMAKE([1.8 dist-bzip2 no-dist-gzip])
 
 AM_MAINTAINER_MODE
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+
 AC_CONFIG_HEADERS([config.h])
 AC_DISABLE_STATIC
 
-AC_PATH_PROG(GCONFTOOL, gconftool-2)
+AC_PROG_LIBTOOL
 
-IT_PROG_INTLTOOL([0.35.0])
-
-LT_INIT
-
-AC_SEARCH_LIBS([strerror],[cposix])
+AC_ISC_POSIX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -38,30 +34,39 @@ AC_SUBST(ACLOCAL_AMFLAGS, "$ACLOCAL_FLAGS -I m4")
 # ================================================================
 # Gettext stuff.
 # ================================================================
+IT_PROG_INTLTOOL([0.40.0])
 
-GETTEXT_PACKAGE=gedit-smart-indenter
+AM_GNU_GETTEXT_VERSION([0.17])
+AM_GNU_GETTEXT([external])
+
+GETTEXT_PACKAGE=gedit-smartindenter
 AC_SUBST(GETTEXT_PACKAGE)
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE", [Gettext package])
-AM_GLIB_GNU_GETTEXT
 
 # ================================================================
 # Start of pkg-config checks
 # ================================================================
 
 PKG_CHECK_MODULES(GEDIT, [
-	gtksourceview-2.0 >= 2.8.1
-	gedit-2.20 >= 2.20.0
+	glib-2.0 >= 2.25.6
+	gtk+-3.0 >= 2.90.0
+	gtksourceview-3.0 >= 2.91.2
+	libpeas-1.0 >= 0.5.5
+	libpeas-gtk-1.0 >= 0.5.5
+	gedit >= 2.31.5
 ])
+
 GEDIT_LIBS="${GEDIT_LIBS}"
 AC_SUBST(GEDIT_LIBS)
 AC_SUBST(GEDIT_CFLAGS)
 
 AC_PATH_PROG(GLIB_GENMARSHAL, glib-genmarshal)
 			      
-GNOME_COMPILE_WARNINGS([maximum])
+#GNOME_COMPILE_WARNINGS(yes)
 
 AC_ARG_ENABLE(deprecations,
-              [AS_HELP_STRING([--enable-deprecations],[warn about deprecated usages [default=no]])],,
+              [AC_HELP_STRING([--enable-deprecations],
+                              [warn about deprecated usages [default=no]])],,
               [enable_deprecations=no])
 
 if test "x$enable_deprecations" = "xyes"
@@ -78,14 +83,15 @@ fi
 PLUGIN_LIBTOOL_FLAGS="-module -avoid-version"
 AC_SUBST(PLUGIN_LIBTOOL_FLAGS)
 
-GEDIT_PLUGINS_LIBS_DIR="$libdir/gedit-2/plugins"
+GEDIT_PLUGINS_LIBS_DIR="$libdir/gedit/plugins"
 AC_SUBST(GEDIT_PLUGINS_LIBS_DIR)
 
-GEDIT_PLUGINS_DATA_DIR="$datadir/gedit-2/plugins"
+GEDIT_PLUGINS_DATA_DIR="$datadir/gedit/plugins"
 AC_SUBST(GEDIT_PLUGINS_DATA_DIR)
 
 AC_CONFIG_FILES([
 Makefile
+src/smartindenter.plugin.desktop.in
 src/Makefile
 data/Makefile
 po/Makefile.in
