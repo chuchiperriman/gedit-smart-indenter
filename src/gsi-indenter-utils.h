@@ -32,7 +32,8 @@ void		 gsi_indenter_utils_replace_indentation		(GtkTextBuffer	*buffer,
 gboolean	 gsi_indenter_utils_find_open_char		(GtkTextIter *iter,
 								 gchar open,
 				  				 gchar close,
-								 gboolean skip_first);
+								 gboolean skip_first,
+								 const gchar *stopchars);
 
 gchar		*gsi_indenter_utils_get_line_text		(GtkTextBuffer *buffer,
 								 GtkTextIter *iter);

@@ -1,5 +1,29 @@
 Milestone 3
 -----------
+
+* Fix problems with c indentation
+[ ] Problem with an if without braces:
+	if (asdfasdf)
+		something ();
+		the cursor goes here instead of in the if indent
+[ ] Problems with else:
+	else
+	asdfasdf(); ---- Needs tab
+[X] The region indentation in large files kills all the system!
+[ ] The indentation works inside a comment
+[ ] Problems in switch:
+	case 1:
+	sdfsd(); ---- It needs a tab
+	break; ---- It needs a tab
+	default:
+	sdfasdfasdf(); ---- It needs a tab
+[ ] Indenting regions: Inserts tabs in empty lines (it is wrong)
+[ ] Insert a tab in this case ???:
+	text_value =
+	gtk_text_buffer_get_text (buffer, &start_iter, &end_iter, TRUE);
+[ ] In region indentation, does not consume all the CPU if the selection is big
+	
+
 * Better python indentation
 [ ] Relocate functions (def)
 [ ] Relocate class

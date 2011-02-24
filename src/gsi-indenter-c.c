@@ -6,6 +6,8 @@
 
 #define GSI_INDENTER_C_GET_PRIVATE(o) \
 	(G_TYPE_INSTANCE_GET_PRIVATE ((o), GSI_TYPE_INDENTER_C, GsiIndenterCPrivate))
+	
+#define STOPCHARS ";{}"
   
 struct _GsiIndenterCPrivate
 {
@@ -51,8 +53,6 @@ move_to_first_blank (GtkTextIter *iter, gboolean forward, gboolean in_line)
 	} while (gtk_text_iter_forward_chars(&copy, d));
 
 	return FALSE;
-	
-	
 }
 
 static gboolean
@@ -79,7 +79,6 @@ move_to_first_non_blank (GtkTextIter *iter, gboolean forward, gboolean in_line)
 	} while (gtk_text_iter_forward_chars(&copy, d));
 
 	return FALSE;
-	
 }
 
 static gchar*
@@ -172,7 +171,8 @@ process_relocators(GsiIndenterC *self,
 				if (gsi_indenter_utils_find_open_char (&copy,
 								       '(',
 								       ')',
-								       FALSE))
+								       FALSE,
+								       NULL))
 				{
 					gint level;
 					gchar *indent;
@@ -230,7 +230,8 @@ process_relocators(GsiIndenterC *self,
 		if (gsi_indenter_utils_find_open_char (&copy,
 						       '{',
 						       '}',
-						       FALSE))
+						       FALSE,
+						       NULL))
 		{
 			gchar *indent;
 			
@@ -249,7 +250,6 @@ process_relocators(GsiIndenterC *self,
 	}
 	
 	return FALSE;
-	
 }
 
 static gboolean
@@ -269,6 +269,8 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 	if (process_relocators (self, view, iter))
 		return TRUE;
 	
+	g_debug("no relocators");
+	
 	if (!gsi_indenter_utils_iter_backward_line_not_empty (&copy))
 	{
 		return FALSE;
@@ -279,6 +281,7 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 	if (move_to_first_non_blank(&copy, FALSE, FALSE))
 	{
 		ch = gtk_text_iter_get_char (&copy);
+		g_debug("char %c", ch);
 		
 		//Block start
 		if (ch == '{')
@@ -299,7 +302,8 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 			if (gsi_indenter_utils_find_open_char (&copy,
 							       '(',
 							       ')',
-							       FALSE))
+							       FALSE,
+							       NULL))
 			{
 				level = gsi_indenter_utils_get_amount_indents(view, &copy);
 				if (prev_word_is_sentence(&copy))
@@ -333,7 +337,8 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 					if (gsi_indenter_utils_find_open_char (&copy,
 									       '(',
 									       ')',
-									       FALSE))
+									       FALSE,
+									       NULL))
 					{
 						/*
 						  The prev_iter and close_iter
@@ -352,8 +357,10 @@ gsi_indenter_indent_line_real (GsiIndenterC *self,
 			}
 		}
 		//Are we in something like: if (hello\n ?
-		if (level == -1 && gsi_indenter_utils_find_open_char (&copy, '(', ')',
-								      TRUE))
+		if (level == -1 && gsi_indenter_utils_find_open_char (&copy,
+								      '(', ')',
+								      TRUE,
+								      STOPCHARS))
 		{
 			level = gsi_indenter_utils_get_amount_indents_from_position (view, &copy);
 

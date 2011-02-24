@@ -20,6 +20,7 @@ gsi_indenter_indent_region_default (GsiIndenter	*self,
 						  view,
 						  start,
 						  end);
+
 }
 
 static const gchar*

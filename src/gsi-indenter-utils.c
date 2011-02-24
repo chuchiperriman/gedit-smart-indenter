@@ -396,7 +396,8 @@ gboolean
 gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 				   gchar open,
 				   gchar close,
-				   gboolean skip_first)
+				   gboolean skip_first,
+				   const gchar *stopchars)
 {
 	GtkSourceBuffer *buffer;
 	GtkTextIter copy;
@@ -415,6 +416,10 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 	do
 	{
 		c = gtk_text_iter_get_char (&copy);
+		
+		if (stopchars && strchr(stopchars, c) != NULL){
+			return FALSE;
+		}
 
 		//Check single quote like '\\'
 		if (c == '\'')
@@ -456,14 +461,14 @@ gsi_indenter_utils_find_open_char (GtkTextIter *iter,
 			
 		}
 		
-		/*
+		//FIXME If highlighting is disabled, it doesn't work...
 		if (gtk_source_buffer_iter_has_context_class(buffer, &copy, "string") ||
 		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "comment") ||
 		    gtk_source_buffer_iter_has_context_class(buffer, &copy, "char"))
 		{
 			continue;
 		}
-		*/
+		
 		/*
 		 * This algorithm has to work even if we have if (xxx, xx(),
 		 */
